@@ -1,0 +1,11 @@
+[
+  {
+    "id": "settings-1",
+    "receipt_header": "Mi Negocio · NIF B12345678",
+    "receipt_footer": "¡Gracias por su compra!",
+    "paper_width": 80,
+    "auto_print_on_sale": 1,
+    "open_drawer_on_sale": 0,
+    "print_kitchen": 0
+  }
+]

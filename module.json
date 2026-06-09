@@ -1,0 +1,86 @@
+{
+  "id": "printing",
+  "name": "Printing",
+  "description": "Receipt, kitchen and label printing via the local ERPlora Bridge.",
+  "icon": "print",
+  "version": "0.1.0",
+  "agent": {
+    "description": "Configures printing: ticket header/footer, paper width, auto-print on sale, and routing of order items to kitchen/bar stations. Actual printing and the cash drawer are triggered client-side through the local Bridge.",
+    "keywords": ["print", "printer", "receipt", "ticket", "kitchen", "label", "cash drawer", "escpos", "bridge"]
+  },
+  "depends_on": [],
+  "permissions": [
+    "printing.view_settings",
+    "printing.manage_settings",
+    "printing.view_routing",
+    "printing.manage_routing",
+    "printing.print",
+    "printing.open_drawer"
+  ],
+  "role_permissions": {
+    "admin": ["*"],
+    "manager": [
+      "printing.view_settings",
+      "printing.manage_settings",
+      "printing.view_routing",
+      "printing.manage_routing",
+      "printing.print",
+      "printing.open_drawer"
+    ],
+    "employee": [
+      "printing.view_settings",
+      "printing.view_routing",
+      "printing.print",
+      "printing.open_drawer"
+    ]
+  },
+  "navigation": [
+    { "id": "printing", "label": "Printers", "icon": "print", "component": "erp-printing-settings" }
+  ],
+  "migrations": {
+    "sqlite": ["migrations/sqlite/001_init.sql"]
+  },
+  "queries": {
+    "printing.settings.get": {
+      "permission": "printing.view_settings",
+      "sql": "queries/settings_get.sql",
+      "ai": { "description": "Retrieves the printing settings (receipt header/footer, paper width, auto-print and auto-open-drawer on sale)" }
+    },
+    "printing.routing.list": {
+      "permission": "printing.view_routing",
+      "sql": "queries/routing_list.sql",
+      "list": {
+        "search": ["category", "station"],
+        "sort": ["category", "station", "created_at"],
+        "default_sort": "category",
+        "default_dir": "asc",
+        "filters": { "station": { "op": "eq" } },
+        "page_size": 50
+      },
+      "ai": { "description": "Lists the item-category to station (receipt/kitchen/bar) routing rules" }
+    }
+  },
+  "commands": {
+    "printing.settings.update": {
+      "permission": "printing.manage_settings",
+      "transaction": true,
+      "sql": ["commands/settings_upsert.sql"],
+      "ai": { "description": "Updates the printing settings (header/footer/paper width/auto-print/auto-open-drawer)" }
+    },
+    "printing.routing.set": {
+      "permission": "printing.manage_routing",
+      "transaction": true,
+      "sql": ["commands/routing_upsert.sql"],
+      "ai": { "description": "Assigns a station (receipt/kitchen/bar) to a product category" }
+    },
+    "printing.routing.remove": {
+      "permission": "printing.manage_routing",
+      "transaction": true,
+      "sql": ["commands/routing_delete.sql"],
+      "ai": { "description": "Removes a category routing rule" }
+    }
+  },
+  "ui": {
+    "entry": "dist/printing.esm.js"
+  }
+}
