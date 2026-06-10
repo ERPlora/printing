@@ -1267,101 +1267,6 @@ function define(tag, ctor) {
   }
 }
 
-// ../hub/packages/module-sdk/src/index.ts
-var BRIDGE_DEFAULT_PORT = 12321;
-var BridgeClient = class {
-  constructor(host = `localhost:${BRIDGE_DEFAULT_PORT}`) {
-    this.base = `http://${host}`;
-    this.wsUrl = `ws://${host}/ws`;
-  }
-  /** ¿Está el Bridge corriendo en este equipo? `GET /status` con timeout corto. */
-  async detect(timeoutMs = 800) {
-    const ctrl = new AbortController();
-    const t3 = setTimeout(() => ctrl.abort(), timeoutMs);
-    try {
-      const res = await fetch(`${this.base}/status`, { signal: ctrl.signal });
-      if (!res.ok) return { online: false };
-      const b3 = await res.json();
-      return { online: b3.ok === true, version: b3.version };
-    } catch {
-      return { online: false };
-    } finally {
-      clearTimeout(t3);
-    }
-  }
-  /** Abre el WS, envía una acción y resuelve con el primer evento de `resolveOn`. */
-  request(action, resolveOn, rejectOn = ["error"], timeoutMs = 2e4) {
-    return new Promise((resolve, reject) => {
-      let ws;
-      try {
-        ws = new WebSocket(this.wsUrl);
-      } catch (e4) {
-        reject(e4);
-        return;
-      }
-      const done = (fn) => {
-        clearTimeout(timer);
-        try {
-          ws.close();
-        } catch {
-        }
-        fn();
-      };
-      const timer = setTimeout(() => done(() => reject(new Error("bridge timeout"))), timeoutMs);
-      ws.onmessage = (ev) => {
-        let msg;
-        try {
-          msg = JSON.parse(String(ev.data));
-        } catch {
-          return;
-        }
-        const event = msg.event;
-        if (rejectOn.includes(event)) {
-          done(() => reject(new Error(msg.error || msg.message || event)));
-        } else if (resolveOn.includes(event)) {
-          done(() => resolve(msg));
-        }
-      };
-      ws.onerror = () => done(() => reject(new Error("bridge ws error")));
-      ws.onopen = () => ws.send(JSON.stringify(action));
-    });
-  }
-  /** Re-escanea la red (subred 9100 + mDNS) y devuelve las impresoras. */
-  async discoverPrinters() {
-    const r6 = await this.request({ action: "discover_printers" }, ["printers"]);
-    return r6.printers ?? [];
-  }
-  /** Dispositivos del registro (con sus roles). */
-  async getDevices() {
-    const r6 = await this.request({ action: "get_devices" }, ["devices"]);
-    return r6.devices ?? [];
-  }
-  /** Página de prueba en la impresora indicada. */
-  async testPrint(printerId) {
-    await this.request({ action: "test_print", printer_id: printerId }, ["print_complete"], [
-      "error",
-      "print_error"
-    ]);
-  }
-  /** Imprime un documento (`document_type` + `data`); el Bridge renderiza el ESC/POS. */
-  async print(printerId, documentType, data, jobId) {
-    await this.request(
-      { action: "print", printer_id: printerId, document_type: documentType, data, job_id: jobId ?? null },
-      ["print_complete"],
-      ["error", "print_error"]
-    );
-  }
-  /** Abre el cajón por el kick ESC/POS de la impresora. */
-  async openDrawer(printerId, pin = 2) {
-    await this.request({ action: "open_drawer", printer_id: printerId, pin }, ["drawer_opened"]);
-  }
-  /** Asigna un rol (receipt/kitchen/bar/label) a un dispositivo y devuelve el registro. */
-  async setDeviceRole(mac, role) {
-    const r6 = await this.request({ action: "set_device_role", mac, role }, ["devices"]);
-    return r6.devices ?? [];
-  }
-};
-
 // modules/printing/ui/components/erp-printing-settings/erp-printing-settings.ts
 var DEFAULTS = {
   receipt_header: "",
@@ -1390,7 +1295,6 @@ var ErpPrintingSettings = class extends i3 {
     this.printers = [];
     this.devices = [];
     this.bridgeError = "";
-    this.bridge = new BridgeClient();
   }
   static {
     this.styles = i`
@@ -1408,6 +1312,10 @@ var ErpPrintingSettings = class extends i3 {
     .muted { opacity:.65; font-size:.85rem; }
     .badge { font-size:.7rem; padding:.1rem .45rem; border-radius:999px; background:#0001; }
   `;
+  }
+  /** Hardware vía el cliente del Hub (no un BridgeClient propio). */
+  get peripherals() {
+    return erplora().peripherals;
   }
   async firstUpdated() {
     await this.loadSettings();
@@ -1436,7 +1344,7 @@ var ErpPrintingSettings = class extends i3 {
   }
   async refreshBridge() {
     this.bridgeError = "";
-    const status = await this.bridge.detect();
+    const status = await this.peripherals.detect();
     this.bridgeOnline = status.online;
     this.bridgeVersion = status.version ?? "";
     if (status.online) await this.scan();
@@ -1445,8 +1353,8 @@ var ErpPrintingSettings = class extends i3 {
     this.scanning = true;
     this.bridgeError = "";
     try {
-      this.printers = await this.bridge.discoverPrinters();
-      this.devices = await this.bridge.getDevices();
+      this.printers = await this.peripherals.discoverPrinters();
+      this.devices = await this.peripherals.getDevices();
     } catch (e4) {
       this.bridgeError = e4 instanceof Error ? e4.message : "Error al escanear";
     } finally {
@@ -1459,7 +1367,7 @@ var ErpPrintingSettings = class extends i3 {
       return;
     }
     try {
-      this.devices = await this.bridge.setDeviceRole(printer.mac, role);
+      this.devices = await this.peripherals.setDeviceRole(printer.mac, role);
     } catch (e4) {
       this.bridgeError = e4 instanceof Error ? e4.message : "No se pudo asignar el rol";
     }
@@ -1467,7 +1375,7 @@ var ErpPrintingSettings = class extends i3 {
   async test(printer) {
     this.bridgeError = "";
     try {
-      await this.bridge.testPrint(printer.id);
+      await this.peripherals.testPrint(printer.id);
     } catch (e4) {
       this.bridgeError = e4 instanceof Error ? e4.message : "Fall\xF3 la impresi\xF3n de prueba";
     }

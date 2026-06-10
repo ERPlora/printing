@@ -1,16 +1,17 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { state } from 'lit/decorators.js';
 import { define } from '@erplora/outfitkit/define';
-import { BridgeClient } from '@erplora/module-sdk';
-import type { BridgePrinter, BridgeDevice } from '@erplora/module-sdk';
+import type { BridgePrinter, BridgeDevice, BridgeTransport } from '@erplora/module-sdk';
 
-// Web Component del módulo 'printing': ajustes de impresión (BD, vía el SDK) + impresoras
-// detectadas por el Bridge local (canal de hardware, vía BridgeClient → ws://localhost:12321).
-// NO toca la BD directamente: datos por globalThis.erplora; hardware por el Bridge.
+// Web Component del módulo 'printing': ajustes de impresión (BD) + impresoras detectadas por el
+// Bridge. TODO pasa por el cliente del Hub (globalThis.erplora): datos por .query/.command y
+// hardware por .peripherals. El módulo NUNCA habla con el Bridge directo — el shell elige el
+// transporte (ws-localhost en web-PWA, invoke en Tauri). ARQUITECTURA.md §2.7.
 
 interface ErploraClientLike {
   query<T = unknown>(name: string, params?: Record<string, unknown>): Promise<T>;
   command<T = unknown>(name: string, payload?: Record<string, unknown>): Promise<T>;
+  peripherals: BridgeTransport;
 }
 
 interface PrintingSettings {
@@ -68,7 +69,10 @@ export class ErpPrintingSettings extends LitElement {
   @state() private devices: BridgeDevice[] = [];
   @state() private bridgeError = '';
 
-  private bridge = new BridgeClient();
+  /** Hardware vía el cliente del Hub (no un BridgeClient propio). */
+  private get peripherals(): BridgeTransport {
+    return erplora().peripherals;
+  }
 
   async firstUpdated(): Promise<void> {
     await this.loadSettings();
@@ -100,7 +104,7 @@ export class ErpPrintingSettings extends LitElement {
 
   private async refreshBridge(): Promise<void> {
     this.bridgeError = '';
-    const status = await this.bridge.detect();
+    const status = await this.peripherals.detect();
     this.bridgeOnline = status.online;
     this.bridgeVersion = status.version ?? '';
     if (status.online) await this.scan();
@@ -110,8 +114,8 @@ export class ErpPrintingSettings extends LitElement {
     this.scanning = true;
     this.bridgeError = '';
     try {
-      this.printers = await this.bridge.discoverPrinters();
-      this.devices = await this.bridge.getDevices();
+      this.printers = await this.peripherals.discoverPrinters();
+      this.devices = await this.peripherals.getDevices();
     } catch (e) {
       this.bridgeError = e instanceof Error ? e.message : 'Error al escanear';
     } finally {
@@ -125,7 +129,7 @@ export class ErpPrintingSettings extends LitElement {
       return;
     }
     try {
-      this.devices = await this.bridge.setDeviceRole(printer.mac, role);
+      this.devices = await this.peripherals.setDeviceRole(printer.mac, role);
     } catch (e) {
       this.bridgeError = e instanceof Error ? e.message : 'No se pudo asignar el rol';
     }
@@ -134,7 +138,7 @@ export class ErpPrintingSettings extends LitElement {
   private async test(printer: BridgePrinter): Promise<void> {
     this.bridgeError = '';
     try {
-      await this.bridge.testPrint(printer.id);
+      await this.peripherals.testPrint(printer.id);
     } catch (e) {
       this.bridgeError = e instanceof Error ? e.message : 'Falló la impresión de prueba';
     }
