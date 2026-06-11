@@ -64,18 +64,21 @@
     "printing.settings.update": {
       "permission": "printing.manage_settings",
       "transaction": true,
+      "schema": "schemas/settings_update.json",
       "sql": ["commands/settings_upsert.sql"],
       "ai": { "description": "Updates the printing settings (header/footer/paper width/auto-print/auto-open-drawer)" }
     },
     "printing.routing.set": {
       "permission": "printing.manage_routing",
       "transaction": true,
+      "schema": "schemas/routing_set.json",
       "sql": ["commands/routing_upsert.sql"],
       "ai": { "description": "Assigns a station (receipt/kitchen/bar) to a product category" }
     },
     "printing.routing.remove": {
       "permission": "printing.manage_routing",
       "transaction": true,
+      "schema": "schemas/routing_remove.json",
       "sql": ["commands/routing_delete.sql"],
       "ai": { "description": "Removes a category routing rule" }
     }

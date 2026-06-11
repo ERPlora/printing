@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "printing.settings.update payload",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "receipt_header",
+    "receipt_footer",
+    "paper_width",
+    "auto_print_on_sale",
+    "open_drawer_on_sale",
+    "print_kitchen"
+  ],
+  "properties": {
+    "receipt_header": { "type": "string" },
+    "receipt_footer": { "type": "string" },
+    "paper_width": { "type": "integer", "enum": [80, 58] },
+    "auto_print_on_sale": { "type": "integer", "enum": [0, 1] },
+    "open_drawer_on_sale": { "type": "integer", "enum": [0, 1] },
+    "print_kitchen": { "type": "integer", "enum": [0, 1] }
+  }
+}

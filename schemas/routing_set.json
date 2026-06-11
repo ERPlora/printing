@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "printing.routing.set payload",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["category", "station"],
+  "properties": {
+    "category": { "type": "string", "minLength": 1 },
+    "station": { "type": "string", "enum": ["receipt", "kitchen", "bar"] }
+  }
+}
