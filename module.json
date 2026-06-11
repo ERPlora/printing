@@ -35,7 +35,8 @@
     ]
   },
   "navigation": [
-    { "id": "printing", "label": "Printers", "icon": "print", "component": "erp-printing-settings" }
+    { "id": "printing", "label": "Printers", "icon": "print", "component": "erp-printing-settings" },
+    { "id": "routing", "label": "Routing", "icon": "funnel", "component": "erp-printing-routing" }
   ],
   "migrations": {
     "sqlite": ["migrations/sqlite/001_init.sql"]
