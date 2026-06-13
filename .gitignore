@@ -3,3 +3,4 @@ target/
 build/
 *.log
 .DS_Store
+handler/target/
