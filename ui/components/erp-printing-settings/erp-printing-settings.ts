@@ -2,6 +2,9 @@ import { LitElement, html, css, nothing } from 'lit';
 import { state } from 'lit/decorators.js';
 import { define } from '@erplora/outfitkit/define';
 import type { BridgePrinter, BridgeDevice, BridgeTransport } from '@erplora/module-sdk';
+import esLocale from '../../../locales/es.json';
+import enLocale from '../../../locales/en.json';
+const CATALOG: Record<string, unknown> = { es: esLocale, en: enLocale };
 
 // Web Component del módulo 'printing': ajustes de impresión (BD) + impresoras detectadas por el
 // Bridge. TODO pasa por el cliente del Hub (globalThis.erplora): datos por .query/.command y
@@ -12,6 +15,9 @@ interface ErploraClientLike {
   query<T = unknown>(name: string, params?: Record<string, unknown>): Promise<T>;
   command<T = unknown>(name: string, payload?: Record<string, unknown>): Promise<T>;
   peripherals: BridgeTransport;
+  /** i18n del módulo (ADR-0055): idioma activo + traducción del catálogo `ui`. */
+  locale: string;
+  t(catalog: Record<string, unknown>, key: string, params?: Record<string, unknown>): string;
 }
 
 interface PrintingSettings {
@@ -84,7 +90,7 @@ export class ErpPrintingSettings extends LitElement {
       const rows = await erplora().query<PrintingSettings[]>('printing.settings.get');
       if (Array.isArray(rows) && rows[0]) this.settings = { ...DEFAULTS, ...rows[0] };
     } catch (e) {
-      this.error = e instanceof Error ? e.message : 'No se pudieron cargar los ajustes';
+      this.error = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errLoadSettings');
     }
   }
 
@@ -96,7 +102,7 @@ export class ErpPrintingSettings extends LitElement {
       await erplora().command('printing.settings.update', { ...this.settings });
       this.saved = true;
     } catch (e) {
-      this.error = e instanceof Error ? e.message : 'No se pudo guardar';
+      this.error = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errSaveSettings');
     } finally {
       this.saving = false;
     }
@@ -117,7 +123,7 @@ export class ErpPrintingSettings extends LitElement {
       this.printers = await this.peripherals.discoverPrinters();
       this.devices = await this.peripherals.getDevices();
     } catch (e) {
-      this.bridgeError = e instanceof Error ? e.message : 'Error al escanear';
+      this.bridgeError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errScan');
     } finally {
       this.scanning = false;
     }
@@ -125,13 +131,13 @@ export class ErpPrintingSettings extends LitElement {
 
   private async assignRole(printer: BridgePrinter, role: string): Promise<void> {
     if (!printer.mac) {
-      this.bridgeError = 'La impresora no tiene MAC; no se puede asignar rol.';
+      this.bridgeError = erplora().t(CATALOG, 'ui.errNoMac');
       return;
     }
     try {
       this.devices = await this.peripherals.setDeviceRole(printer.mac, role);
     } catch (e) {
-      this.bridgeError = e instanceof Error ? e.message : 'No se pudo asignar el rol';
+      this.bridgeError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errAssignRole');
     }
   }
 
@@ -140,13 +146,36 @@ export class ErpPrintingSettings extends LitElement {
     try {
       await this.peripherals.testPrint(printer.id);
     } catch (e) {
-      this.bridgeError = e instanceof Error ? e.message : 'Falló la impresión de prueba';
+      this.bridgeError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errTestPrint');
     }
   }
 
   private roleOf(printer: BridgePrinter): string {
     const d = this.devices.find((x) => printer.mac && x.mac === printer.mac);
     return d?.role ?? '';
+  }
+
+  // Etiqueta i18n para un rol/estación lógica (el `value=` enviado al Bridge sigue siendo el enum).
+  private roleLabel(role: string): string {
+    const keys: Record<string, string> = {
+      receipt: 'ui.roleReceipt',
+      kitchen: 'ui.roleKitchen',
+      bar: 'ui.roleBar',
+      label: 'ui.roleLabel',
+    };
+    return keys[role] ? erplora().t(CATALOG, keys[role]) : role;
+  }
+
+  // Re-render al cambiar el idioma del shell (ADR-0055): el template se re-evalúa con el nuevo
+  // `erplora.locale`.
+  private readonly onLocaleChange = (): void => this.requestUpdate();
+  connectedCallback(): void {
+    super.connectedCallback();
+    window.addEventListener('erplora:locale-changed', this.onLocaleChange);
+  }
+  disconnectedCallback(): void {
+    window.removeEventListener('erplora:locale-changed', this.onLocaleChange);
+    super.disconnectedCallback();
   }
 
   private set<K extends keyof PrintingSettings>(key: K, value: PrintingSettings[K]): void {
@@ -156,24 +185,25 @@ export class ErpPrintingSettings extends LitElement {
 
   render() {
     const s = this.settings;
+    const t = (k: string, params?: Record<string, unknown>): string => erplora().t(CATALOG, k, params);
     return html`
-      <h2>Printers</h2>
-      <p class="muted">Configura la impresión de tickets y las impresoras de red detectadas por el Bridge.</p>
+      <h2>${t('ui.printersTitle')}</h2>
+      <p class="muted">${t('ui.printersIntro')}</p>
 
       <section>
-        <h3>Ajustes del ticket</h3>
+        <h3>${t('ui.ticketSettings')}</h3>
         <div class="field">
-          <label>Cabecera del recibo</label>
-          <ion-input .value=${s.receipt_header} placeholder="Mi negocio · NIF · dirección"
+          <label>${t('ui.receiptHeader')}</label>
+          <ion-input .value=${s.receipt_header} placeholder=${t('ui.receiptHeaderPlaceholder')}
             @ionInput=${(e: Event) => this.set('receipt_header', (e.target as HTMLInputElement).value)}></ion-input>
         </div>
         <div class="field">
-          <label>Pie del recibo</label>
-          <ion-input .value=${s.receipt_footer} placeholder="¡Gracias por su compra!"
+          <label>${t('ui.receiptFooter')}</label>
+          <ion-input .value=${s.receipt_footer} placeholder=${t('ui.receiptFooterPlaceholder')}
             @ionInput=${(e: Event) => this.set('receipt_footer', (e.target as HTMLInputElement).value)}></ion-input>
         </div>
         <div class="row">
-          <label>Ancho de papel</label>
+          <label>${t('ui.paperWidth')}</label>
           <ion-select .value=${String(s.paper_width)} interface="popover"
             @ionChange=${(e: Event) => this.set('paper_width', Number((e.target as HTMLInputElement).value))}>
             <ion-select-option value="80">80 mm</ion-select-option>
@@ -181,40 +211,40 @@ export class ErpPrintingSettings extends LitElement {
           </ion-select>
         </div>
         <div class="row">
-          <label>Imprimir ticket al cobrar</label>
+          <label>${t('ui.autoPrintOnSale')}</label>
           <ion-toggle ?checked=${s.auto_print_on_sale === 1}
             @ionChange=${(e: Event) => this.set('auto_print_on_sale', (e.target as HTMLInputElement).checked ? 1 : 0)}></ion-toggle>
         </div>
         <div class="row">
-          <label>Abrir cajón al cobrar</label>
+          <label>${t('ui.openDrawerOnSale')}</label>
           <ion-toggle ?checked=${s.open_drawer_on_sale === 1}
             @ionChange=${(e: Event) => this.set('open_drawer_on_sale', (e.target as HTMLInputElement).checked ? 1 : 0)}></ion-toggle>
         </div>
         <div class="row">
-          <label>Enrutar comandas a cocina/barra</label>
+          <label>${t('ui.routeToKitchen')}</label>
           <ion-toggle ?checked=${s.print_kitchen === 1}
             @ionChange=${(e: Event) => this.set('print_kitchen', (e.target as HTMLInputElement).checked ? 1 : 0)}></ion-toggle>
         </div>
         <ion-button size="small" ?disabled=${this.saving} @click=${() => this.saveSettings()}>
-          ${this.saving ? 'Guardando…' : 'Guardar ajustes'}
+          ${this.saving ? t('ui.saving') : t('ui.saveSettings')}
         </ion-button>
-        ${this.saved ? html`<span class="ok"> ✓ Guardado</span>` : nothing}
+        ${this.saved ? html`<span class="ok"> ${t('ui.saved')}</span>` : nothing}
         ${this.error ? html`<p class="err">${this.error}</p>` : nothing}
       </section>
 
       <section>
         <div class="row">
-          <h3 style="margin:0">Impresoras en la red</h3>
+          <h3 style="margin:0">${t('ui.networkPrinters')}</h3>
           <ion-button size="small" fill="outline" ?disabled=${this.scanning} @click=${() => this.refreshBridge()}>
-            ${this.scanning ? 'Escaneando…' : 'Re-escanear'}
+            ${this.scanning ? t('ui.scanning') : t('ui.rescan')}
           </ion-button>
         </div>
         ${this.bridgeOnline
-          ? html`<p class="muted">Bridge conectado${this.bridgeVersion ? html` · v${this.bridgeVersion}` : nothing}.</p>`
-          : html`<p class="err">El Bridge no está corriendo en este equipo. Instálalo y arráncalo para detectar impresoras.</p>`}
+          ? html`<p class="muted">${t('ui.bridgeConnected')}${this.bridgeVersion ? html` · v${this.bridgeVersion}` : nothing}.</p>`
+          : html`<p class="err">${t('ui.bridgeOffline')}</p>`}
         ${this.bridgeError ? html`<p class="err">${this.bridgeError}</p>` : nothing}
         ${this.bridgeOnline && this.printers.length === 0 && !this.scanning
-          ? html`<p class="muted">No se encontraron impresoras de red (puerto 9100) en esta subred.</p>`
+          ? html`<p class="muted">${t('ui.noPrintersFound')}</p>`
           : nothing}
         ${this.printers.map(
           (p) => html`
@@ -223,11 +253,11 @@ export class ErpPrintingSettings extends LitElement {
                 <div>${p.name} <span class="badge">${p.status}</span></div>
                 <div class="id">${p.id}${p.mac ? html` · ${p.mac}` : nothing}</div>
               </div>
-              <ion-select placeholder="Rol" .value=${this.roleOf(p)} interface="popover"
+              <ion-select placeholder=${t('ui.rolePlaceholder')} .value=${this.roleOf(p)} interface="popover"
                 @ionChange=${(e: Event) => this.assignRole(p, (e.target as HTMLInputElement).value)}>
-                ${ROLES.map((r) => html`<ion-select-option value=${r}>${r}</ion-select-option>`)}
+                ${ROLES.map((r) => html`<ion-select-option value=${r}>${this.roleLabel(r)}</ion-select-option>`)}
               </ion-select>
-              <ion-button size="small" fill="outline" @click=${() => this.test(p)}>Probar</ion-button>
+              <ion-button size="small" fill="outline" @click=${() => this.test(p)}>${t('ui.test')}</ion-button>
             </div>
           `,
         )}

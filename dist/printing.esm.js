@@ -9,7 +9,7 @@ var __decorateClass = (decorators, target, key, kind) => {
   return result;
 };
 
-// ../../node_modules/.pnpm/@lit-labs+ssr-dom-shim@1.6.0/node_modules/@lit-labs/ssr-dom-shim/lib/element-internals.js
+// node_modules/@lit-labs/ssr-dom-shim/lib/element-internals.js
 var ElementInternalsShim = class ElementInternals {
   get shadowRoot() {
     return this.__host.__shadowRoot;
@@ -88,7 +88,7 @@ var ElementInternalsShim = class ElementInternals {
   }
 };
 
-// ../../node_modules/.pnpm/@lit-labs+ssr-dom-shim@1.6.0/node_modules/@lit-labs/ssr-dom-shim/lib/events.js
+// node_modules/@lit-labs/ssr-dom-shim/lib/events.js
 var __classPrivateFieldSet = function(receiver, state, value, kind, f3) {
   if (kind === "m") throw new TypeError("Private method is not writable");
   if (kind === "a" && !f3) throw new TypeError("Private accessor was defined without a setter");
@@ -246,7 +246,7 @@ Object.defineProperties(CustomEventShim.prototype, {
 var EventShimWithRealType = EventShim;
 var CustomEventShimWithRealType = CustomEventShim;
 
-// ../../node_modules/.pnpm/@lit-labs+ssr-dom-shim@1.6.0/node_modules/@lit-labs/ssr-dom-shim/lib/css.js
+// node_modules/@lit-labs/ssr-dom-shim/lib/css.js
 var _a2;
 var CSSRuleShim = (_a2 = class CSSRule {
   constructor() {
@@ -277,7 +277,7 @@ var CSSRuleShim = (_a2 = class CSSRule {
   }
 }, _a2.STYLE_RULE = 1, _a2.CHARSET_RULE = 2, _a2.IMPORT_RULE = 3, _a2.MEDIA_RULE = 4, _a2.FONT_FACE_RULE = 5, _a2.PAGE_RULE = 6, _a2.NAMESPACE_RULE = 10, _a2.KEYFRAMES_RULE = 7, _a2.KEYFRAME_RULE = 8, _a2.SUPPORTS_RULE = 12, _a2.COUNTER_STYLE_RULE = 11, _a2.FONT_FEATURE_VALUES_RULE = 14, _a2.MARGIN_RULE = 9, _a2);
 
-// ../../node_modules/.pnpm/@lit-labs+ssr-dom-shim@1.6.0/node_modules/@lit-labs/ssr-dom-shim/index.js
+// node_modules/@lit-labs/ssr-dom-shim/index.js
 globalThis.Event ??= EventShimWithRealType;
 globalThis.CustomEvent ??= CustomEventShimWithRealType;
 var constructionToken = Symbol();
@@ -674,7 +674,7 @@ var CustomElementRegistryShimWithRealType = CustomElementRegistry;
 var customElements2 = new CustomElementRegistryShimWithRealType();
 var windowShim = new WindowShim(constructionToken);
 
-// ../../node_modules/.pnpm/@lit+reactive-element@2.1.2/node_modules/@lit/reactive-element/node/css-tag.js
+// node_modules/@lit/reactive-element/node/css-tag.js
 var t = globalThis;
 var e = t.ShadowRoot && (void 0 === t.ShadyCSS || t.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype;
 var s = Symbol();
@@ -719,7 +719,7 @@ var c = e || void 0 === t.CSSStyleSheet ? (t5) => t5 : (t5) => t5 instanceof CSS
   return r(e5);
 })(t5) : t5;
 
-// ../../node_modules/.pnpm/@lit+reactive-element@2.1.2/node_modules/@lit/reactive-element/node/reactive-element.js
+// node_modules/@lit/reactive-element/node/reactive-element.js
 var { is: h, defineProperty: r2, getOwnPropertyDescriptor: o2, getOwnPropertyNames: n2, getOwnPropertySymbols: a, getPrototypeOf: c2 } = Object;
 var l = globalThis;
 l.customElements ??= customElements2;
@@ -942,7 +942,7 @@ var g = class extends (globalThis.HTMLElement ?? HTMLElementShimWithRealType) {
 };
 g.elementStyles = [], g.shadowRootOptions = { mode: "open" }, g[f("elementProperties")] = /* @__PURE__ */ new Map(), g[f("finalized")] = /* @__PURE__ */ new Map(), u?.({ ReactiveElement: g }), (l.reactiveElementVersions ??= []).push("2.1.2");
 
-// ../../node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/lit-html.js
+// node_modules/lit-html/lit-html.js
 var t2 = globalThis;
 var i2 = (t5) => t5;
 var s2 = t2.trustedTypes;
@@ -1197,7 +1197,7 @@ var D = (t5, i7, s5) => {
   return h4._$AI(t5), h4;
 };
 
-// ../../node_modules/.pnpm/lit-element@4.2.2/node_modules/lit-element/lit-element.js
+// node_modules/lit-element/lit-element.js
 var s3 = globalThis;
 var i3 = class extends g {
   constructor() {
@@ -1226,7 +1226,7 @@ var o4 = s3.litElementPolyfillSupport;
 o4?.({ LitElement: i3 });
 (s3.litElementVersions ??= []).push("4.2.2");
 
-// ../../node_modules/.pnpm/@lit+reactive-element@2.1.2/node_modules/@lit/reactive-element/node/decorators/property.js
+// node_modules/@lit/reactive-element/node/decorators/property.js
 var o5 = { attribute: true, type: String, converter: b, reflect: false, hasChanged: m };
 var r4 = (t5 = o5, e5, r6) => {
   const { kind: n6, metadata: i7 } = r6;
@@ -1256,19 +1256,19 @@ function n4(t5) {
   })(t5, e5, o7);
 }
 
-// ../../node_modules/.pnpm/@lit+reactive-element@2.1.2/node_modules/@lit/reactive-element/node/decorators/state.js
+// node_modules/@lit/reactive-element/node/decorators/state.js
 function r5(r6) {
   return n4({ ...r6, state: true, attribute: false });
 }
 
-// ../../node_modules/.pnpm/@outfitkit+core@file+..+outfitkit/node_modules/@outfitkit/core/dist/define.js
+// ../outfitkit/dist/define.js
 function define(tag, ctor) {
   if (typeof customElements !== "undefined" && !customElements.get(tag)) {
     customElements.define(tag, ctor);
   }
 }
 
-// ../../node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directive.js
+// node_modules/lit-html/directive.js
 var t3 = { ATTRIBUTE: 1, CHILD: 2, PROPERTY: 3, BOOLEAN_ATTRIBUTE: 4, EVENT: 5, ELEMENT: 6 };
 var e4 = (t5) => (...e5) => ({ _$litDirective$: t5, values: e5 });
 var i4 = class {
@@ -1288,7 +1288,7 @@ var i4 = class {
   }
 };
 
-// ../../node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directive-helpers.js
+// node_modules/lit-html/directive-helpers.js
 var { I: t4 } = j;
 var i5 = (o7) => o7;
 var s4 = () => document.createComment("");
@@ -1321,7 +1321,7 @@ var h3 = (o7) => {
   o7._$AR(), o7._$AA.remove();
 };
 
-// ../../node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directives/repeat.js
+// node_modules/lit-html/directives/repeat.js
 var u4 = (e5, s5, t5) => {
   const r6 = /* @__PURE__ */ new Map();
   for (let l3 = s5; l3 <= t5; l3++) r6.set(e5[l3], l3);
@@ -1374,7 +1374,7 @@ var c4 = e4(class extends i4 {
   }
 });
 
-// ../../node_modules/.pnpm/lit-html@3.3.3/node_modules/lit-html/directives/style-map.js
+// node_modules/lit-html/directives/style-map.js
 var n5 = "important";
 var i6 = " !" + n5;
 var o6 = e4(class extends i4 {
@@ -1403,7 +1403,7 @@ var o6 = e4(class extends i4 {
   }
 });
 
-// ../../node_modules/.pnpm/@outfitkit+core@file+..+outfitkit/node_modules/@outfitkit/core/dist/ok-data-table.js
+// ../outfitkit/dist/ok-data-table.js
 var __defProp2 = Object.defineProperty;
 var __decorateClass2 = (decorators, target, key, kind) => {
   var result = void 0;
@@ -1571,12 +1571,15 @@ var OkDataTable = class extends i3 {
 
     /* ── Topbar / cabecera (relieve) ─────────────────────────────────────────────────────── */
     .bar { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.65rem 1rem; border-bottom: 1px solid var(--border-color); background: var(--header-background); }
-    /* Toolbar CONSOLIDADA: TODOS los controles (buscador, filtros, page-size, vistas, columnas,
-     * CSV, ⋮, alta) son hijos directos de UNA sola fila flex que envuelve ELEMENTO A ELEMENTO
-     * (no por bloques): caben en una línea → una línea; los que no caben bajan a la(s) línea(s)
-     * que hagan falta. El cluster derecho se empuja al borde con .tk-spacer (hueco flexible)
-     * solo cuando todo cabe en una línea; al envolver, el spacer se oculta y todo se apila a la
-     * izquierda. */
+    /* Toolbar CONSOLIDADA: TODOS los controles son hijos directos de UNA sola fila flex que
+     * envuelve ELEMENTO A ELEMENTO (no por bloques): caben en una línea → una línea; los que no
+     * caben bajan a la(s) línea(s) que hagan falta. El cluster derecho se empuja al borde con
+     * .tk-spacer (hueco flexible) solo cuando todo cabe en una línea; al envolver, el spacer se
+     * oculta y todo se apila a la izquierda.
+     * ORDEN CANÓNICO (2026-06-22, izquierda→derecha): [buscador] · [filtros en línea] · ‹spacer› ·
+     * [SELECTORES: columnas → filas/página] · [BOTONES: vistas → filtros(funnel) → import → export →
+     * alta → ⋮ → acción primaria]. Es decir: buscador al inicio, filtros en medio, y al final los
+     * selectores (columnas, luego «N por página») seguidos de los botones de acción. */
     .bar-main { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
     .bar-main > ion-button { --padding-start: 0.5rem; --padding-end: 0.5rem; margin: 0; }
     /* Spacer que absorbe el hueco libre en pantallas anchas (empuja el cluster derecho al borde).
@@ -2287,6 +2290,19 @@ var OkDataTable = class extends i3 {
                   ${this.hasSearch ? b2`<div class="search">${searchbar}</div>` : A}
                   ${this.inlineFilters ? this.renderInlineFilters() : A}
                   <span class="tk-spacer"></span>
+                    ${this.effColumnPicker ? b2`
+                          <ion-select
+                            class="tk-cols"
+                            multiple
+                            interface="popover"
+                            aria-label=${this.t.columnsVisible}
+                            .value=${this.visibleColumns.map((c5) => c5.key)}
+                            .selectedText=${this.t.columns}
+                            @ionChange=${(e5) => this.setVisibleColumns(e5.detail.value)}
+                          >
+                            ${this.columns.map((c5) => b2`<ion-select-option value=${c5.key}>${c5.header}</ion-select-option>`)}
+                          </ion-select>
+                        ` : A}
                     ${this.effPageSizes.length ? b2`
                           <ion-select
                             class="tk-psize"
@@ -2303,19 +2319,6 @@ var OkDataTable = class extends i3 {
                             ${this.toolButton("list-outline", this.viewMode === "table", () => this.setViewMode("table"), this.t.viewList)}
                             ${this.toolButton("grid-outline", this.viewMode === "cards", () => this.setViewMode("cards"), this.t.viewCards)}
                           </span>
-                        ` : A}
-                    ${this.effColumnPicker ? b2`
-                          <ion-select
-                            class="tk-cols"
-                            multiple
-                            interface="popover"
-                            aria-label=${this.t.columnsVisible}
-                            .value=${this.visibleColumns.map((c5) => c5.key)}
-                            .selectedText=${this.t.columns}
-                            @ionChange=${(e5) => this.setVisibleColumns(e5.detail.value)}
-                          >
-                            ${this.columns.map((c5) => b2`<ion-select-option value=${c5.key}>${c5.header}</ion-select-option>`)}
-                          </ion-select>
                         ` : A}
                     ${this.hasFilterRow && !this.inlineFilters ? this.toolButton("funnel-outline", this.panel === "filters" || this.activeFilterCount > 0, () => this.toggle("filters"), this.t.filters, this.serverSide ? void 0 : this.activeFilterCount) : A}
                     ${this.effImport ? b2`
@@ -2678,7 +2681,7 @@ __decorateClass2([
 ], OkDataTable.prototype, "menuOpen");
 define("ok-data-table", OkDataTable);
 
-// ../../node_modules/.pnpm/@erplora+module-sdk@file+..+hub+packages+module-sdk/node_modules/@erplora/module-sdk/src/index.ts
+// ../hub/packages/module-sdk/src/index.ts
 function isEmpty(v3) {
   return v3 === null || v3 === void 0 || v3 === "";
 }
@@ -2796,13 +2799,138 @@ function createListController(client, queryName, onChange = () => {
   return new ListController(client, queryName, onChange, opts);
 }
 
-// ui/components/erp-printing-routing/erp-printing-routing.ts
-var STATIONS = ["receipt", "kitchen", "bar"];
-var STATION_LABELS = {
-  receipt: "Recibo",
-  kitchen: "Cocina",
-  bar: "Barra"
+// ../modules-workspace/modules/printing/locales/es.json
+var es_default = {
+  name: "Impresi\xF3n",
+  navigation: {
+    printing: { label: "Impresoras" },
+    routing: { label: "Enrutamiento" }
+  },
+  ui: {
+    printersTitle: "Impresoras",
+    printersIntro: "Configura la impresi\xF3n de tickets y las impresoras de red detectadas por el Bridge.",
+    ticketSettings: "Ajustes del ticket",
+    receiptHeader: "Cabecera del recibo",
+    receiptHeaderPlaceholder: "Mi negocio \xB7 NIF \xB7 direcci\xF3n",
+    receiptFooter: "Pie del recibo",
+    receiptFooterPlaceholder: "\xA1Gracias por su compra!",
+    paperWidth: "Ancho de papel",
+    autoPrintOnSale: "Imprimir ticket al cobrar",
+    openDrawerOnSale: "Abrir caj\xF3n al cobrar",
+    routeToKitchen: "Enrutar comandas a cocina/barra",
+    saving: "Guardando\u2026",
+    saveSettings: "Guardar ajustes",
+    saved: "\u2713 Guardado",
+    networkPrinters: "Impresoras en la red",
+    scanning: "Escaneando\u2026",
+    rescan: "Re-escanear",
+    bridgeConnected: "Bridge conectado",
+    bridgeOffline: "El Bridge no est\xE1 corriendo en este equipo. Inst\xE1lalo y arr\xE1ncalo para detectar impresoras.",
+    noPrintersFound: "No se encontraron impresoras de red (puerto 9100) en esta subred.",
+    rolePlaceholder: "Rol",
+    test: "Probar",
+    roleReceipt: "Recibo",
+    roleKitchen: "Cocina",
+    roleBar: "Barra",
+    roleLabel: "Etiqueta",
+    errLoadSettings: "No se pudieron cargar los ajustes",
+    errSaveSettings: "No se pudo guardar",
+    errScan: "Error al escanear",
+    errNoMac: "La impresora no tiene MAC; no se puede asignar rol.",
+    errAssignRole: "No se pudo asignar el rol",
+    errTestPrint: "Fall\xF3 la impresi\xF3n de prueba",
+    routingTitle: "Enrutado de comandas",
+    routingIntro: "Asigna cada categor\xEDa de producto a una estaci\xF3n (recibo, cocina o barra). Sin regla, los productos van a cocina por defecto; la estaci\xF3n \xABrecibo\xBB se excluye de las comandas.",
+    categoryPlaceholder: "Categor\xEDa (p.ej. Bebidas)",
+    stationPlaceholder: "Estaci\xF3n\u2026",
+    assign: "Asignar",
+    stationReceipt: "Recibo",
+    stationKitchen: "Cocina",
+    stationBar: "Barra",
+    colCategory: "Categor\xEDa",
+    colStation: "Estaci\xF3n",
+    actionEdit: "Editar",
+    actionDelete: "Eliminar",
+    searchRouting: "Buscar categor\xEDa o estaci\xF3n\u2026",
+    loading: "Cargando\u2026",
+    emptyRouting: "Sin reglas: todo va a cocina por defecto.",
+    errSaveRule: "No se pudo guardar la regla",
+    errRemoveRule: "No se pudo eliminar la regla"
+  }
 };
+
+// ../modules-workspace/modules/printing/locales/en.json
+var en_default = {
+  name: "Printing",
+  navigation: {
+    printing: { label: "Printers" },
+    routing: { label: "Routing" }
+  },
+  ui: {
+    printersTitle: "Printers",
+    printersIntro: "Configure receipt printing and the network printers detected by the Bridge.",
+    ticketSettings: "Ticket settings",
+    receiptHeader: "Receipt header",
+    receiptHeaderPlaceholder: "My business \xB7 Tax ID \xB7 address",
+    receiptFooter: "Receipt footer",
+    receiptFooterPlaceholder: "Thank you for your purchase!",
+    paperWidth: "Paper width",
+    autoPrintOnSale: "Print receipt on checkout",
+    openDrawerOnSale: "Open drawer on checkout",
+    routeToKitchen: "Route orders to kitchen/bar",
+    saving: "Saving\u2026",
+    saveSettings: "Save settings",
+    saved: "\u2713 Saved",
+    networkPrinters: "Network printers",
+    scanning: "Scanning\u2026",
+    rescan: "Rescan",
+    bridgeConnected: "Bridge connected",
+    bridgeOffline: "The Bridge is not running on this device. Install and start it to detect printers.",
+    noPrintersFound: "No network printers (port 9100) were found on this subnet.",
+    rolePlaceholder: "Role",
+    test: "Test",
+    roleReceipt: "Receipt",
+    roleKitchen: "Kitchen",
+    roleBar: "Bar",
+    roleLabel: "Label",
+    errLoadSettings: "Could not load settings",
+    errSaveSettings: "Could not save",
+    errScan: "Error while scanning",
+    errNoMac: "The printer has no MAC; role cannot be assigned.",
+    errAssignRole: "Could not assign the role",
+    errTestPrint: "Test print failed",
+    routingTitle: "Order routing",
+    routingIntro: "Assign each product category to a station (receipt, kitchen or bar). Without a rule, products go to the kitchen by default; the \xABreceipt\xBB station is excluded from orders.",
+    categoryPlaceholder: "Category (e.g. Drinks)",
+    stationPlaceholder: "Station\u2026",
+    assign: "Assign",
+    stationReceipt: "Receipt",
+    stationKitchen: "Kitchen",
+    stationBar: "Bar",
+    colCategory: "Category",
+    colStation: "Station",
+    actionEdit: "Edit",
+    actionDelete: "Delete",
+    searchRouting: "Search category or station\u2026",
+    loading: "Loading\u2026",
+    emptyRouting: "No rules: everything goes to the kitchen by default.",
+    errSaveRule: "Could not save the rule",
+    errRemoveRule: "Could not remove the rule"
+  }
+};
+
+// ../modules-workspace/modules/printing/ui/components/erp-printing-routing/erp-printing-routing.ts
+var CATALOG = { es: es_default, en: en_default };
+var STATIONS = ["receipt", "kitchen", "bar"];
+var STATION_LABEL_KEYS = {
+  receipt: "ui.stationReceipt",
+  kitchen: "ui.stationKitchen",
+  bar: "ui.stationBar"
+};
+function stationLabel(station) {
+  const key = STATION_LABEL_KEYS[station];
+  return key ? erplora().t(CATALOG, key) : station;
+}
 function erplora() {
   const c5 = globalThis.erplora;
   if (!c5) throw new Error("erplora SDK no inicializado por el shell");
@@ -2815,22 +2943,9 @@ var ErpPrintingRouting = class extends i3 {
     this.formError = "";
     this.newCategory = "";
     this.newStation = "kitchen";
-    this.columns = [
-      { key: "category", header: "Categor\xEDa", sortable: true, filterable: true, filterType: "text" },
-      {
-        key: "station",
-        header: "Estaci\xF3n",
-        sortable: true,
-        filterable: true,
-        filterType: "select",
-        options: STATIONS.map((s5) => ({ value: s5, label: STATION_LABELS[s5] ?? s5 })),
-        format: (r6) => STATION_LABELS[r6.station] ?? r6.station
-      }
-    ];
-    this.actions = [
-      { id: "edit", label: "Editar", icon: "pencil" },
-      { id: "remove", label: "Eliminar", icon: "trash", color: "danger" }
-    ];
+    // Re-render al cambiar el idioma del shell (ADR-0055): getters `columns`/`actions` y el template
+    // se re-evalúan con el nuevo `erplora.locale`.
+    this.onLocaleChange = () => this.requestUpdate();
   }
   static {
     this.styles = i`
@@ -2843,14 +2958,43 @@ var ErpPrintingRouting = class extends i3 {
     .err { color:#d9480f; font-weight:600; }
   `;
   }
+  // Getters (no campos): se re-evalúan en cada render, así los textos cambian con el idioma activo
+  // (ADR-0055). El re-render lo dispara `erplora:locale-changed` vía `onLocaleChange`.
+  get columns() {
+    const t5 = (k2) => erplora().t(CATALOG, k2);
+    return [
+      { key: "category", header: t5("ui.colCategory"), sortable: true, filterable: true, filterType: "text" },
+      {
+        key: "station",
+        header: t5("ui.colStation"),
+        sortable: true,
+        filterable: true,
+        filterType: "select",
+        options: STATIONS.map((s5) => ({ value: s5, label: stationLabel(s5) })),
+        format: (r6) => stationLabel(r6.station)
+      }
+    ];
+  }
+  get actions() {
+    const t5 = (k2) => erplora().t(CATALOG, k2);
+    return [
+      { id: "edit", label: t5("ui.actionEdit"), icon: "pencil" },
+      { id: "remove", label: t5("ui.actionDelete"), icon: "trash", color: "danger" }
+    ];
+  }
   async connectedCallback() {
     super.connectedCallback();
+    window.addEventListener("erplora:locale-changed", this.onLocaleChange);
     this.ctrl = createListController(erplora(), "printing.routing.list", () => this.requestUpdate(), {
       pageSize: 50,
       sort: "category",
       dir: "asc"
     });
     await this.ctrl.load();
+  }
+  disconnectedCallback() {
+    window.removeEventListener("erplora:locale-changed", this.onLocaleChange);
+    super.disconnectedCallback();
   }
   async setRule(ev) {
     ev.preventDefault();
@@ -2864,7 +3008,7 @@ var ErpPrintingRouting = class extends i3 {
       this.newStation = "kitchen";
       await this.ctrl.load();
     } catch (e5) {
-      this.formError = e5 instanceof Error ? e5.message : "No se pudo guardar la regla";
+      this.formError = e5 instanceof Error ? e5.message : erplora().t(CATALOG, "ui.errSaveRule");
     } finally {
       this.saving = false;
     }
@@ -2875,7 +3019,7 @@ var ErpPrintingRouting = class extends i3 {
       await erplora().command("printing.routing.remove", { category });
       await this.ctrl.load();
     } catch (e5) {
-      this.formError = e5 instanceof Error ? e5.message : "No se pudo eliminar la regla";
+      this.formError = e5 instanceof Error ? e5.message : erplora().t(CATALOG, "ui.errRemoveRule");
     }
   }
   onRowAction(ev) {
@@ -2889,23 +3033,21 @@ var ErpPrintingRouting = class extends i3 {
     }
   }
   render() {
+    const t5 = (k2) => erplora().t(CATALOG, k2);
     return b2`<div>
         <header>
-          <h2>Enrutado de comandas</h2>
+          <h2>${t5("ui.routingTitle")}</h2>
         </header>
-        <p class="muted">
-          Asigna cada categoría de producto a una estación (recibo, cocina o barra). Sin regla, los
-          productos van a cocina por defecto; la estación «recibo» se excluye de las comandas.
-        </p>
+        <p class="muted">${t5("ui.routingIntro")}</p>
         <form class="form" @submit=${(e5) => this.setRule(e5)}>
-          <ion-input placeholder="Categoría (p.ej. Bebidas)" .value=${this.newCategory}
+          <ion-input placeholder=${t5("ui.categoryPlaceholder")} .value=${this.newCategory}
             @ionInput=${(e5) => this.newCategory = e5.target.value}></ion-input>
-          <ion-select placeholder="Estación…" interface="popover" .value=${this.newStation}
+          <ion-select placeholder=${t5("ui.stationPlaceholder")} interface="popover" .value=${this.newStation}
             @ionChange=${(e5) => this.newStation = e5.target.value}>
-            ${STATIONS.map((s5) => b2`<ion-select-option .value=${s5}>${STATION_LABELS[s5] ?? s5}</ion-select-option>`)}
+            ${STATIONS.map((s5) => b2`<ion-select-option .value=${s5}>${stationLabel(s5)}</ion-select-option>`)}
           </ion-select>
           <ion-button type="submit" size="small" ?disabled=${this.saving || !this.newCategory.trim()}>
-            ${this.saving ? "Guardando\u2026" : "Asignar"}
+            ${this.saving ? t5("ui.saving") : t5("ui.assign")}
           </ion-button>
         </form>
         ${this.formError ? b2`<p class="err">${this.formError}</p>` : A}
@@ -2920,9 +3062,9 @@ var ErpPrintingRouting = class extends i3 {
           .sort=${this.ctrl?.state.sort}
           .sortDir=${this.ctrl?.state.dir ?? "asc"}
           .searchable=${true}
-          .searchPlaceholder=${"Buscar categor\xEDa o estaci\xF3n\u2026"}
+          .searchPlaceholder=${t5("ui.searchRouting")}
           .actions=${this.actions}
-          .emptyMessage=${this.ctrl?.loading ? "Cargando\u2026" : "Sin reglas: todo va a cocina por defecto."}
+          .emptyMessage=${this.ctrl?.loading ? t5("ui.loading") : t5("ui.emptyRouting")}
           @rowAction=${(e5) => this.onRowAction(e5)}
           @pageChange=${(e5) => this.ctrl.setPage(e5.detail)}
           @sortChange=${(e5) => this.ctrl.setSort(e5.detail.sort, e5.detail.dir)}
@@ -2946,7 +3088,8 @@ __decorateClass([
 ], ErpPrintingRouting.prototype, "newStation", 2);
 define("erp-printing-routing", ErpPrintingRouting);
 
-// ui/components/erp-printing-settings/erp-printing-settings.ts
+// ../modules-workspace/modules/printing/ui/components/erp-printing-settings/erp-printing-settings.ts
+var CATALOG2 = { es: es_default, en: en_default };
 var DEFAULTS = {
   receipt_header: "",
   receipt_footer: "",
@@ -2974,6 +3117,9 @@ var ErpPrintingSettings = class extends i3 {
     this.printers = [];
     this.devices = [];
     this.bridgeError = "";
+    // Re-render al cambiar el idioma del shell (ADR-0055): el template se re-evalúa con el nuevo
+    // `erplora.locale`.
+    this.onLocaleChange = () => this.requestUpdate();
   }
   static {
     this.styles = i`
@@ -3005,7 +3151,7 @@ var ErpPrintingSettings = class extends i3 {
       const rows = await erplora2().query("printing.settings.get");
       if (Array.isArray(rows) && rows[0]) this.settings = { ...DEFAULTS, ...rows[0] };
     } catch (e5) {
-      this.error = e5 instanceof Error ? e5.message : "No se pudieron cargar los ajustes";
+      this.error = e5 instanceof Error ? e5.message : erplora2().t(CATALOG2, "ui.errLoadSettings");
     }
   }
   async saveSettings() {
@@ -3016,7 +3162,7 @@ var ErpPrintingSettings = class extends i3 {
       await erplora2().command("printing.settings.update", { ...this.settings });
       this.saved = true;
     } catch (e5) {
-      this.error = e5 instanceof Error ? e5.message : "No se pudo guardar";
+      this.error = e5 instanceof Error ? e5.message : erplora2().t(CATALOG2, "ui.errSaveSettings");
     } finally {
       this.saving = false;
     }
@@ -3035,20 +3181,20 @@ var ErpPrintingSettings = class extends i3 {
       this.printers = await this.peripherals.discoverPrinters();
       this.devices = await this.peripherals.getDevices();
     } catch (e5) {
-      this.bridgeError = e5 instanceof Error ? e5.message : "Error al escanear";
+      this.bridgeError = e5 instanceof Error ? e5.message : erplora2().t(CATALOG2, "ui.errScan");
     } finally {
       this.scanning = false;
     }
   }
   async assignRole(printer, role) {
     if (!printer.mac) {
-      this.bridgeError = "La impresora no tiene MAC; no se puede asignar rol.";
+      this.bridgeError = erplora2().t(CATALOG2, "ui.errNoMac");
       return;
     }
     try {
       this.devices = await this.peripherals.setDeviceRole(printer.mac, role);
     } catch (e5) {
-      this.bridgeError = e5 instanceof Error ? e5.message : "No se pudo asignar el rol";
+      this.bridgeError = e5 instanceof Error ? e5.message : erplora2().t(CATALOG2, "ui.errAssignRole");
     }
   }
   async test(printer) {
@@ -3056,12 +3202,30 @@ var ErpPrintingSettings = class extends i3 {
     try {
       await this.peripherals.testPrint(printer.id);
     } catch (e5) {
-      this.bridgeError = e5 instanceof Error ? e5.message : "Fall\xF3 la impresi\xF3n de prueba";
+      this.bridgeError = e5 instanceof Error ? e5.message : erplora2().t(CATALOG2, "ui.errTestPrint");
     }
   }
   roleOf(printer) {
     const d3 = this.devices.find((x2) => printer.mac && x2.mac === printer.mac);
     return d3?.role ?? "";
+  }
+  // Etiqueta i18n para un rol/estación lógica (el `value=` enviado al Bridge sigue siendo el enum).
+  roleLabel(role) {
+    const keys = {
+      receipt: "ui.roleReceipt",
+      kitchen: "ui.roleKitchen",
+      bar: "ui.roleBar",
+      label: "ui.roleLabel"
+    };
+    return keys[role] ? erplora2().t(CATALOG2, keys[role]) : role;
+  }
+  connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener("erplora:locale-changed", this.onLocaleChange);
+  }
+  disconnectedCallback() {
+    window.removeEventListener("erplora:locale-changed", this.onLocaleChange);
+    super.disconnectedCallback();
   }
   set(key, value) {
     this.settings = { ...this.settings, [key]: value };
@@ -3069,24 +3233,25 @@ var ErpPrintingSettings = class extends i3 {
   }
   render() {
     const s5 = this.settings;
+    const t5 = (k2, params) => erplora2().t(CATALOG2, k2, params);
     return b2`
-      <h2>Printers</h2>
-      <p class="muted">Configura la impresión de tickets y las impresoras de red detectadas por el Bridge.</p>
+      <h2>${t5("ui.printersTitle")}</h2>
+      <p class="muted">${t5("ui.printersIntro")}</p>
 
       <section>
-        <h3>Ajustes del ticket</h3>
+        <h3>${t5("ui.ticketSettings")}</h3>
         <div class="field">
-          <label>Cabecera del recibo</label>
-          <ion-input .value=${s5.receipt_header} placeholder="Mi negocio · NIF · dirección"
+          <label>${t5("ui.receiptHeader")}</label>
+          <ion-input .value=${s5.receipt_header} placeholder=${t5("ui.receiptHeaderPlaceholder")}
             @ionInput=${(e5) => this.set("receipt_header", e5.target.value)}></ion-input>
         </div>
         <div class="field">
-          <label>Pie del recibo</label>
-          <ion-input .value=${s5.receipt_footer} placeholder="¡Gracias por su compra!"
+          <label>${t5("ui.receiptFooter")}</label>
+          <ion-input .value=${s5.receipt_footer} placeholder=${t5("ui.receiptFooterPlaceholder")}
             @ionInput=${(e5) => this.set("receipt_footer", e5.target.value)}></ion-input>
         </div>
         <div class="row">
-          <label>Ancho de papel</label>
+          <label>${t5("ui.paperWidth")}</label>
           <ion-select .value=${String(s5.paper_width)} interface="popover"
             @ionChange=${(e5) => this.set("paper_width", Number(e5.target.value))}>
             <ion-select-option value="80">80 mm</ion-select-option>
@@ -3094,37 +3259,37 @@ var ErpPrintingSettings = class extends i3 {
           </ion-select>
         </div>
         <div class="row">
-          <label>Imprimir ticket al cobrar</label>
+          <label>${t5("ui.autoPrintOnSale")}</label>
           <ion-toggle ?checked=${s5.auto_print_on_sale === 1}
             @ionChange=${(e5) => this.set("auto_print_on_sale", e5.target.checked ? 1 : 0)}></ion-toggle>
         </div>
         <div class="row">
-          <label>Abrir cajón al cobrar</label>
+          <label>${t5("ui.openDrawerOnSale")}</label>
           <ion-toggle ?checked=${s5.open_drawer_on_sale === 1}
             @ionChange=${(e5) => this.set("open_drawer_on_sale", e5.target.checked ? 1 : 0)}></ion-toggle>
         </div>
         <div class="row">
-          <label>Enrutar comandas a cocina/barra</label>
+          <label>${t5("ui.routeToKitchen")}</label>
           <ion-toggle ?checked=${s5.print_kitchen === 1}
             @ionChange=${(e5) => this.set("print_kitchen", e5.target.checked ? 1 : 0)}></ion-toggle>
         </div>
         <ion-button size="small" ?disabled=${this.saving} @click=${() => this.saveSettings()}>
-          ${this.saving ? "Guardando\u2026" : "Guardar ajustes"}
+          ${this.saving ? t5("ui.saving") : t5("ui.saveSettings")}
         </ion-button>
-        ${this.saved ? b2`<span class="ok"> ✓ Guardado</span>` : A}
+        ${this.saved ? b2`<span class="ok"> ${t5("ui.saved")}</span>` : A}
         ${this.error ? b2`<p class="err">${this.error}</p>` : A}
       </section>
 
       <section>
         <div class="row">
-          <h3 style="margin:0">Impresoras en la red</h3>
+          <h3 style="margin:0">${t5("ui.networkPrinters")}</h3>
           <ion-button size="small" fill="outline" ?disabled=${this.scanning} @click=${() => this.refreshBridge()}>
-            ${this.scanning ? "Escaneando\u2026" : "Re-escanear"}
+            ${this.scanning ? t5("ui.scanning") : t5("ui.rescan")}
           </ion-button>
         </div>
-        ${this.bridgeOnline ? b2`<p class="muted">Bridge conectado${this.bridgeVersion ? b2` · v${this.bridgeVersion}` : A}.</p>` : b2`<p class="err">El Bridge no está corriendo en este equipo. Instálalo y arráncalo para detectar impresoras.</p>`}
+        ${this.bridgeOnline ? b2`<p class="muted">${t5("ui.bridgeConnected")}${this.bridgeVersion ? b2` · v${this.bridgeVersion}` : A}.</p>` : b2`<p class="err">${t5("ui.bridgeOffline")}</p>`}
         ${this.bridgeError ? b2`<p class="err">${this.bridgeError}</p>` : A}
-        ${this.bridgeOnline && this.printers.length === 0 && !this.scanning ? b2`<p class="muted">No se encontraron impresoras de red (puerto 9100) en esta subred.</p>` : A}
+        ${this.bridgeOnline && this.printers.length === 0 && !this.scanning ? b2`<p class="muted">${t5("ui.noPrintersFound")}</p>` : A}
         ${this.printers.map(
       (p4) => b2`
             <div class="printer">
@@ -3132,11 +3297,11 @@ var ErpPrintingSettings = class extends i3 {
                 <div>${p4.name} <span class="badge">${p4.status}</span></div>
                 <div class="id">${p4.id}${p4.mac ? b2` · ${p4.mac}` : A}</div>
               </div>
-              <ion-select placeholder="Rol" .value=${this.roleOf(p4)} interface="popover"
+              <ion-select placeholder=${t5("ui.rolePlaceholder")} .value=${this.roleOf(p4)} interface="popover"
                 @ionChange=${(e5) => this.assignRole(p4, e5.target.value)}>
-                ${ROLES.map((r6) => b2`<ion-select-option value=${r6}>${r6}</ion-select-option>`)}
+                ${ROLES.map((r6) => b2`<ion-select-option value=${r6}>${this.roleLabel(r6)}</ion-select-option>`)}
               </ion-select>
-              <ion-button size="small" fill="outline" @click=${() => this.test(p4)}>Probar</ion-button>
+              <ion-button size="small" fill="outline" @click=${() => this.test(p4)}>${t5("ui.test")}</ion-button>
             </div>
           `
     )}

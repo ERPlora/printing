@@ -5,6 +5,9 @@ import '@erplora/outfitkit/ok-data-table';
 import type { DataTableColumn } from '@erplora/outfitkit';
 import { createListController } from '@erplora/module-sdk';
 import type { ListController, ListClient, ListParams, ListPage } from '@erplora/module-sdk';
+import esLocale from '../../../locales/es.json';
+import enLocale from '../../../locales/en.json';
+const CATALOG: Record<string, unknown> = { es: esLocale, en: enLocale };
 
 // Web Component del módulo 'printing': enrutado categoría de producto → estación lógica
 // (receipt|kitchen|bar). Lista con ok-data-table sobre printing.routing.list y gestiona las
@@ -16,6 +19,9 @@ interface ErploraClientLike extends ListClient {
   query<T = unknown>(name: string, params?: Record<string, unknown>): Promise<T>;
   queryPage<R = unknown>(name: string, params: ListParams): Promise<ListPage<R>>;
   command<T = unknown>(name: string, payload?: Record<string, unknown>): Promise<T>;
+  /** i18n del módulo (ADR-0055): idioma activo + traducción del catálogo `ui`. */
+  locale: string;
+  t(catalog: Record<string, unknown>, key: string, params?: Record<string, unknown>): string;
 }
 
 interface RoutingRule {
@@ -27,11 +33,17 @@ interface RoutingRule {
 
 const STATIONS = ['receipt', 'kitchen', 'bar'];
 
-const STATION_LABELS: Record<string, string> = {
-  receipt: 'Recibo',
-  kitchen: 'Cocina',
-  bar: 'Barra',
+// Etiqueta i18n de una estación lógica; el `value=`/enum enviado al runtime sigue siendo el código.
+const STATION_LABEL_KEYS: Record<string, string> = {
+  receipt: 'ui.stationReceipt',
+  kitchen: 'ui.stationKitchen',
+  bar: 'ui.stationBar',
 };
+
+function stationLabel(station: string): string {
+  const key = STATION_LABEL_KEYS[station];
+  return key ? erplora().t(CATALOG, key) : station;
+}
 
 function erplora(): ErploraClientLike {
   const c = (globalThis as { erplora?: ErploraClientLike }).erplora;
@@ -60,32 +72,50 @@ export class ErpPrintingRouting extends LitElement {
 
   private ctrl!: ListController<RoutingRule>;
 
-  private columns: DataTableColumn[] = [
-    { key: 'category', header: 'Categoría', sortable: true, filterable: true, filterType: 'text' },
-    {
-      key: 'station',
-      header: 'Estación',
-      sortable: true,
-      filterable: true,
-      filterType: 'select',
-      options: STATIONS.map((s) => ({ value: s, label: STATION_LABELS[s] ?? s })),
-      format: (r) => STATION_LABELS[r.station as string] ?? (r.station as string),
-    },
-  ];
+  // Getters (no campos): se re-evalúan en cada render, así los textos cambian con el idioma activo
+  // (ADR-0055). El re-render lo dispara `erplora:locale-changed` vía `onLocaleChange`.
+  private get columns(): DataTableColumn[] {
+    const t = (k: string): string => erplora().t(CATALOG, k);
+    return [
+      { key: 'category', header: t('ui.colCategory'), sortable: true, filterable: true, filterType: 'text' },
+      {
+        key: 'station',
+        header: t('ui.colStation'),
+        sortable: true,
+        filterable: true,
+        filterType: 'select',
+        options: STATIONS.map((s) => ({ value: s, label: stationLabel(s) })),
+        format: (r) => stationLabel(r.station as string),
+      },
+    ];
+  }
 
-  private actions = [
-    { id: 'edit', label: 'Editar', icon: 'pencil' },
-    { id: 'remove', label: 'Eliminar', icon: 'trash', color: 'danger' },
-  ];
+  private get actions() {
+    const t = (k: string): string => erplora().t(CATALOG, k);
+    return [
+      { id: 'edit', label: t('ui.actionEdit'), icon: 'pencil' },
+      { id: 'remove', label: t('ui.actionDelete'), icon: 'trash', color: 'danger' },
+    ];
+  }
+
+  // Re-render al cambiar el idioma del shell (ADR-0055): getters `columns`/`actions` y el template
+  // se re-evalúan con el nuevo `erplora.locale`.
+  private readonly onLocaleChange = (): void => this.requestUpdate();
 
   async connectedCallback() {
     super.connectedCallback();
+    window.addEventListener('erplora:locale-changed', this.onLocaleChange);
     this.ctrl = createListController<RoutingRule>(erplora(), 'printing.routing.list', () => this.requestUpdate(), {
       pageSize: 50,
       sort: 'category',
       dir: 'asc',
     });
     await this.ctrl.load();
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener('erplora:locale-changed', this.onLocaleChange);
+    super.disconnectedCallback();
   }
 
   private async setRule(ev: Event) {
@@ -101,7 +131,7 @@ export class ErpPrintingRouting extends LitElement {
       this.newStation = 'kitchen';
       await this.ctrl.load();
     } catch (e) {
-      this.formError = e instanceof Error ? e.message : 'No se pudo guardar la regla';
+      this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errSaveRule');
     } finally {
       this.saving = false;
     }
@@ -113,7 +143,7 @@ export class ErpPrintingRouting extends LitElement {
       await erplora().command('printing.routing.remove', { category });
       await this.ctrl.load();
     } catch (e) {
-      this.formError = e instanceof Error ? e.message : 'No se pudo eliminar la regla';
+      this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errRemoveRule');
     }
   }
 
@@ -130,23 +160,21 @@ export class ErpPrintingRouting extends LitElement {
   }
 
   render() {
+    const t = (k: string): string => erplora().t(CATALOG, k);
     return html`<div>
         <header>
-          <h2>Enrutado de comandas</h2>
+          <h2>${t('ui.routingTitle')}</h2>
         </header>
-        <p class="muted">
-          Asigna cada categoría de producto a una estación (recibo, cocina o barra). Sin regla, los
-          productos van a cocina por defecto; la estación «recibo» se excluye de las comandas.
-        </p>
+        <p class="muted">${t('ui.routingIntro')}</p>
         <form class="form" @submit=${(e: Event) => this.setRule(e)}>
-          <ion-input placeholder="Categoría (p.ej. Bebidas)" .value=${this.newCategory}
+          <ion-input placeholder=${t('ui.categoryPlaceholder')} .value=${this.newCategory}
             @ionInput=${(e: Event) => (this.newCategory = (e.target as HTMLInputElement).value)}></ion-input>
-          <ion-select placeholder="Estación…" interface="popover" .value=${this.newStation}
+          <ion-select placeholder=${t('ui.stationPlaceholder')} interface="popover" .value=${this.newStation}
             @ionChange=${(e: Event) => (this.newStation = (e.target as HTMLInputElement).value)}>
-            ${STATIONS.map((s) => html`<ion-select-option .value=${s}>${STATION_LABELS[s] ?? s}</ion-select-option>`)}
+            ${STATIONS.map((s) => html`<ion-select-option .value=${s}>${stationLabel(s)}</ion-select-option>`)}
           </ion-select>
           <ion-button type="submit" size="small" ?disabled=${this.saving || !this.newCategory.trim()}>
-            ${this.saving ? 'Guardando…' : 'Asignar'}
+            ${this.saving ? t('ui.saving') : t('ui.assign')}
           </ion-button>
         </form>
         ${this.formError ? html`<p class="err">${this.formError}</p>` : nothing}
@@ -161,9 +189,9 @@ export class ErpPrintingRouting extends LitElement {
           .sort=${this.ctrl?.state.sort}
           .sortDir=${this.ctrl?.state.dir ?? 'asc'}
           .searchable=${true}
-          .searchPlaceholder=${'Buscar categoría o estación…'}
+          .searchPlaceholder=${t('ui.searchRouting')}
           .actions=${this.actions}
-          .emptyMessage=${this.ctrl?.loading ? 'Cargando…' : 'Sin reglas: todo va a cocina por defecto.'}
+          .emptyMessage=${this.ctrl?.loading ? t('ui.loading') : t('ui.emptyRouting')}
           @rowAction=${(e: CustomEvent) => this.onRowAction(e)}
           @pageChange=${(e: CustomEvent<number>) => this.ctrl.setPage(e.detail)}
           @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.ctrl.setSort(e.detail.sort, e.detail.dir)}
