@@ -1,0 +1,7 @@
+{
+  "name": "Printing",
+  "navigation": {
+    "printing": { "label": "Printers" },
+    "routing": { "label": "Routing" }
+  }
+}

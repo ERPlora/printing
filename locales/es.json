@@ -1,0 +1,7 @@
+{
+  "name": "Impresión",
+  "navigation": {
+    "printing": { "label": "Impresoras" },
+    "routing": { "label": "Enrutamiento" }
+  }
+}
