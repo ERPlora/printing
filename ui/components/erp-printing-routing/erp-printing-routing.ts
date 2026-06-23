@@ -57,8 +57,8 @@ export class ErpPrintingRouting extends LitElement {
     header { display:flex; gap:.5rem; align-items:center; margin-bottom:.25rem; }
     h2 { margin:0; font-size:1.15rem; flex:1; }
     .muted { opacity:.65; font-size:.85rem; margin:0 0 .75rem; }
-    .form { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin:.5rem 0 1rem; }
-    .form ion-input, .form ion-select { --background:var(--surface-2,#f7f4ec); border:1px solid var(--line,#e7e2d6); border-radius:8px; min-width:10rem; }
+    .form { display:flex; gap:.75rem; flex-wrap:wrap; align-items:end; margin:.5rem 0 1.25rem; }
+    .form ion-input, .form ion-select { flex:1 1 11rem; min-width:9rem; }
     .err { color:#d9480f; font-weight:600; }
   `;
 
@@ -167,9 +167,9 @@ export class ErpPrintingRouting extends LitElement {
         </header>
         <p class="muted">${t('ui.routingIntro')}</p>
         <form class="form" @submit=${(e: Event) => this.setRule(e)}>
-          <ion-input placeholder=${t('ui.categoryPlaceholder')} .value=${this.newCategory}
+          <ion-input fill="outline" label-placement="floating" label=${t('ui.colCategory')} placeholder=${t('ui.categoryPlaceholder')} .value=${this.newCategory}
             @ionInput=${(e: Event) => (this.newCategory = (e.target as HTMLInputElement).value)}></ion-input>
-          <ion-select placeholder=${t('ui.stationPlaceholder')} interface="popover" .value=${this.newStation}
+          <ion-select fill="outline" label-placement="floating" label=${t('ui.colStation')} placeholder=${t('ui.stationPlaceholder')} interface="popover" .value=${this.newStation}
             @ionChange=${(e: Event) => (this.newStation = (e.target as HTMLInputElement).value)}>
             ${STATIONS.map((s) => html`<ion-select-option .value=${s}>${stationLabel(s)}</ion-select-option>`)}
           </ion-select>
