@@ -53,12 +53,14 @@ function erplora(): ErploraClientLike {
 
 export class ErpPrintingRouting extends LitElement {
   static styles = css`
-    :host { display:block; font-family: system-ui, sans-serif; color: var(--ion-text-color, #1c1b18); }
-    header { display:flex; gap:.5rem; align-items:center; margin-bottom:.25rem; }
-    h2 { margin:0; font-size:1.15rem; flex:1; }
-    .muted { opacity:.65; font-size:.85rem; margin:0 0 .75rem; }
-    .form { display:flex; gap:.75rem; flex-wrap:wrap; align-items:end; margin:.5rem 0 1.25rem; }
-    .form ion-input, .form ion-select { flex:1 1 11rem; min-width:9rem; }
+    :host { display:flex; flex-direction:column; height:100%; min-height:0; font-family: system-ui, sans-serif; color: var(--ion-text-color, #1c1b18); }
+    /* La vista llena el alto: el data-table ocupa el resto (scroll interno, pie fijo). */
+    .page { display:flex; flex-direction:column; min-height:0; flex:1 1 auto; }
+    .page > ok-data-table { flex:1 1 auto; min-height:0; }
+    .muted { opacity:.65; font-size:.85rem; margin:0; }
+    /* La regla se crea/edita en el panel lateral de la tabla (estrecho) → columna, no fila. */
+    .form { display:flex; flex-direction:column; gap:.7rem; }
+    .form ion-button { align-self:flex-end; }
     .err { color:#d9480f; font-weight:600; }
   `;
 
@@ -77,7 +79,10 @@ export class ErpPrintingRouting extends LitElement {
   private get columns(): DataTableColumn[] {
     const t = (k: string): string => erplora().t(CATALOG, k);
     return [
-      { key: 'category', header: t('ui.colCategory'), sortable: true, filterable: true, filterType: 'text' },
+      // `category` NO se anuncia como filtrable: `printing.routing.list` solo declara el filtro
+      // `station` (op eq) en module.json — el embudo pintaría un control que el runtime ignora en
+      // silencio. Buscar por categoría sí funciona (va en `list.search`), por el buscador de la barra.
+      { key: 'category', header: t('ui.colCategory'), sortable: true },
       {
         key: 'station',
         header: t('ui.colStation'),
@@ -96,6 +101,13 @@ export class ErpPrintingRouting extends LitElement {
       { id: 'edit', label: t('ui.actionEdit'), icon: 'pencil' },
       { id: 'remove', label: t('ui.actionDelete'), icon: 'trash', color: 'danger' },
     ];
+  }
+
+  // Referencia al ok-data-table para abrir/cerrar su panel lateral (la regla se crea Y se edita ahí).
+  private dataTable(): { open(p?: 'filters' | 'create'): void; close(): void } | null {
+    return this.renderRoot.querySelector('ok-data-table') as
+      | { open(p?: 'filters' | 'create'): void; close(): void }
+      | null;
   }
 
   // Re-render al cambiar el idioma del shell (ADR-0055): getters `columns`/`actions` y el template
@@ -129,6 +141,7 @@ export class ErpPrintingRouting extends LitElement {
       await erplora().command('printing.routing.set', { category, station: this.newStation });
       this.newCategory = '';
       this.newStation = 'kitchen';
+      this.dataTable()?.close(); // cierra el panel lateral tras asignar
       await this.ctrl.load();
     } catch (e) {
       this.formError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errSaveRule');
@@ -153,34 +166,23 @@ export class ErpPrintingRouting extends LitElement {
     if (actionId === 'remove') {
       this.removeRule(rule.category);
     } else if (actionId === 'edit') {
-      // Carga la regla en el formulario; guardar = upsert sobre la misma categoría.
+      // Editar reabre el MISMO panel de alta, pre-rellenado: `printing.routing.set` es un upsert por
+      // categoría, así que guardar sobre una categoría existente la reasigna.
       this.newCategory = rule.category;
       this.newStation = STATIONS.includes(rule.station) ? rule.station : 'kitchen';
+      this.dataTable()?.open('create');
     }
   }
 
   render() {
     const t = (k: string): string => erplora().t(CATALOG, k);
-    return html`<div>
-        <header>
-          <h2>${t('ui.routingTitle')}</h2>
-        </header>
-        <p class="muted">${t('ui.routingIntro')}</p>
-        <form class="form" @submit=${(e: Event) => this.setRule(e)}>
-          <ion-input fill="outline" label-placement="floating" label=${t('ui.colCategory')} placeholder=${t('ui.categoryPlaceholder')} .value=${this.newCategory}
-            @ionInput=${(e: Event) => (this.newCategory = (e.target as HTMLInputElement).value)}></ion-input>
-          <ion-select fill="outline" label-placement="floating" label=${t('ui.colStation')} placeholder=${t('ui.stationPlaceholder')} interface="popover" .value=${this.newStation}
-            @ionChange=${(e: Event) => (this.newStation = (e.target as HTMLInputElement).value)}>
-            ${STATIONS.map((s) => html`<ion-select-option .value=${s}>${stationLabel(s)}</ion-select-option>`)}
-          </ion-select>
-          <ion-button type="submit" size="small" ?disabled=${this.saving || !this.newCategory.trim()}>
-            ${this.saving ? t('ui.saving') : t('ui.assign')}
-          </ion-button>
-        </form>
+    return html`<div class="page">
         ${this.formError ? html`<p class="err">${this.formError}</p>` : nothing}
         ${this.ctrl?.error ? html`<p class="err">${this.ctrl.error}</p>` : nothing}
         <ok-data-table
           .serverSide=${true}
+          .fill=${true}
+          .addable=${true}
           .columns=${this.columns}
           .rows=${this.ctrl?.rows ?? []}
           .total=${this.ctrl?.total ?? 0}
@@ -194,10 +196,26 @@ export class ErpPrintingRouting extends LitElement {
           .emptyMessage=${this.ctrl?.loading ? t('ui.loading') : t('ui.emptyRouting')}
           @rowAction=${(e: CustomEvent) => this.onRowAction(e)}
           @pageChange=${(e: CustomEvent<number>) => this.ctrl.setPage(e.detail)}
+          @pageSizeChange=${(e: CustomEvent<number>) => this.ctrl.setPageSize(e.detail)}
           @sortChange=${(e: CustomEvent<{ sort: string; dir: 'asc' | 'desc' }>) => this.ctrl.setSort(e.detail.sort, e.detail.dir)}
           @searchChange=${(e: CustomEvent<string>) => this.ctrl.setSearch(e.detail)}
           @filterChange=${(e: CustomEvent<{ col: string; value: unknown }>) => this.ctrl.setFilter(e.detail.col, e.detail.value)}
-        ></ok-data-table>
+        >
+          <!-- Regla (alta Y edición): se proyecta SIEMPRE, aunque el panel esté cerrado. Si solo se
+               renderizara con el panel abierto, el «+» de la barra desplegaría un panel vacío. -->
+          <form slot="create" class="form" @submit=${(e: Event) => this.setRule(e)}>
+            <p class="muted">${t('ui.routingIntro')}</p>
+            <ion-input fill="outline" label-placement="floating" label=${t('ui.colCategory')} placeholder=${t('ui.categoryPlaceholder')} .value=${this.newCategory}
+              @ionInput=${(e: Event) => (this.newCategory = (e.target as HTMLInputElement).value)}></ion-input>
+            <ion-select fill="outline" label-placement="floating" label=${t('ui.colStation')} placeholder=${t('ui.stationPlaceholder')} interface="popover" .value=${this.newStation}
+              @ionChange=${(e: Event) => (this.newStation = (e.target as HTMLInputElement).value)}>
+              ${STATIONS.map((s) => html`<ion-select-option .value=${s}>${stationLabel(s)}</ion-select-option>`)}
+            </ion-select>
+            <ion-button type="submit" ?disabled=${this.saving || !this.newCategory.trim()}>
+              ${this.saving ? t('ui.saving') : t('ui.assign')}
+            </ion-button>
+          </form>
+        </ok-data-table>
       </div>`;
   }
 }
