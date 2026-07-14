@@ -184,6 +184,9 @@ export class ErpPrintingRouting extends LitElement {
           .fill=${true}
           .addable=${true}
           .columns=${this.columns}
+          .views=${true}
+          .cardTitle=${(r: Record<string, unknown>) => String(r.category ?? '—')}
+          .cardIcon=${() => 'print-outline'}
           .rows=${this.ctrl?.rows ?? []}
           .total=${this.ctrl?.total ?? 0}
           .page=${this.ctrl?.state.page ?? 0}
