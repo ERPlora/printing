@@ -1,6 +1,7 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { state } from 'lit/decorators.js';
 import { define } from '@erplora/outfitkit/define';
+import '@erplora/outfitkit/ok-inline-feedback';
 import type { BridgePrinter, BridgeDevice, BridgeTransport } from '@erplora/module-sdk';
 import esLocale from '../../../locales/es.json';
 import enLocale from '../../../locales/en.json';
@@ -60,7 +61,7 @@ export class ErpPrintingSettings extends LitElement {
     .err { color:#d9480f; font-weight:600; }
     .ok { color:#2b8a3e; }
     .muted { opacity:.65; font-size:.85rem; }
-    .badge { font-size:.7rem; padding:.1rem .45rem; border-radius:999px; background:#0001; }
+    .badge { font-size:.7rem; padding:.1rem .45rem; border-radius: var(--ok-radius-pill, 999px); background:#0001; }
   `;
 
   @state() private settings: PrintingSettings = { ...DEFAULTS };
@@ -227,7 +228,7 @@ export class ErpPrintingSettings extends LitElement {
           ${this.saving ? t('ui.saving') : t('ui.saveSettings')}
         </ion-button>
         ${this.saved ? html`<span class="ok"> ${t('ui.saved')}</span>` : nothing}
-        ${this.error ? html`<p class="err">${this.error}</p>` : nothing}
+        ${this.error ? html`<ok-inline-feedback tone="danger" icon="alert-circle-outline">${this.error}</ok-inline-feedback>` : nothing}
       </section>
 
       <section>
@@ -239,8 +240,8 @@ export class ErpPrintingSettings extends LitElement {
         </div>
         ${this.bridgeOnline
           ? html`<p class="muted">${t('ui.bridgeConnected')}${this.bridgeVersion ? html` · v${this.bridgeVersion}` : nothing}.</p>`
-          : html`<p class="err">${t('ui.bridgeOffline')}</p>`}
-        ${this.bridgeError ? html`<p class="err">${this.bridgeError}</p>` : nothing}
+          : html`<ok-inline-feedback tone="danger" icon="alert-circle-outline">${t('ui.bridgeOffline')}</ok-inline-feedback>`}
+        ${this.bridgeError ? html`<ok-inline-feedback tone="danger" icon="alert-circle-outline">${this.bridgeError}</ok-inline-feedback>` : nothing}
         ${this.bridgeOnline && this.printers.length === 0 && !this.scanning
           ? html`<p class="muted">${t('ui.noPrintersFound')}</p>`
           : nothing}
