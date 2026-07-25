@@ -3,7 +3,7 @@
   "name": "Printing",
   "description": "Receipt, kitchen and label printing via the local ERPlora Bridge.",
   "icon": "print",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "agent": {
     "description": "Configures printing: ticket header/footer, paper width, auto-print on sale, and routing of order items to kitchen/bar stations. Actual printing and the cash drawer are triggered client-side through the local Bridge.",
     "keywords": [
