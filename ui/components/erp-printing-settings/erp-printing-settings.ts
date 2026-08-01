@@ -129,13 +129,25 @@ export class ErpPrintingSettings extends LitElement {
     }
   }
 
+  /**
+   * Clave estable de la impresora en el registro del Bridge: su MAC si el sistema la resolvió por
+   * ARP y, si no, su propio `id` (`network:{ip}:{port}`).
+   *
+   * Antes esto exigía MAC y abortaba sin ella, así que en Android —donde ARP **nunca** resuelve—
+   * no se podía asignar ninguna impresora a cocina/barra/caja.
+   */
+  private deviceKeyOf(printer: BridgePrinter): string {
+    return printer.mac ?? printer.id;
+  }
+
   private async assignRole(printer: BridgePrinter, role: string): Promise<void> {
-    if (!printer.mac) {
-      this.bridgeError = erplora().t(CATALOG, 'ui.errNoMac');
-      return;
-    }
+    // Aviso, no bloqueo: el descubrimiento solo puede afirmar "es de oficina" cuando la impresora
+    // anuncia IPP, así que una A4 que no lo anuncie llegaría igual aquí. Bloquear daría una falsa
+    // sensación de garantía; avisar informa sin impedir el caso raro legítimo.
+    this.bridgeError =
+      printer.category === 'a4' ? erplora().t(CATALOG, 'ui.warnA4Printer') : '';
     try {
-      this.devices = await this.peripherals.setDeviceRole(printer.mac, role);
+      this.devices = await this.peripherals.setDeviceRole(this.deviceKeyOf(printer), role);
     } catch (e) {
       this.bridgeError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errAssignRole');
     }
@@ -151,7 +163,12 @@ export class ErpPrintingSettings extends LitElement {
   }
 
   private roleOf(printer: BridgePrinter): string {
-    const d = this.devices.find((x) => printer.mac && x.mac === printer.mac);
+    // Se casa por `key` (siempre presente en el bridge Rust), no por MAC: `key` cae al
+    // `printer_id` cuando no hay ARP, que es el caso permanente en Android.
+    // El `?? x.mac` es el puente para el bridge Kotlin, que aún no emite `key`; se puede quitar
+    // cuando ese bridge se retire.
+    const key = this.deviceKeyOf(printer);
+    const d = this.devices.find((x) => (x.key ?? x.mac) === key);
     return d?.role ?? '';
   }
 

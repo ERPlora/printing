@@ -34,7 +34,7 @@
     "errLoadSettings": "No se pudieron cargar los ajustes",
     "errSaveSettings": "No se pudo guardar",
     "errScan": "Error al escanear",
-    "errNoMac": "La impresora no tiene MAC; no se puede asignar rol.",
+    "warnA4Printer": "Esta impresora parece de oficina (A4) y no entiende tickets. Los tiques y comandas necesitan una impresora térmica.",
     "errAssignRole": "No se pudo asignar el rol",
     "errTestPrint": "Falló la impresión de prueba",
     "routingTitle": "Enrutado de comandas",

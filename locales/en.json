@@ -34,7 +34,7 @@
     "errLoadSettings": "Could not load settings",
     "errSaveSettings": "Could not save",
     "errScan": "Error while scanning",
-    "errNoMac": "The printer has no MAC; role cannot be assigned.",
+    "warnA4Printer": "This looks like an office (A4) printer and does not understand receipts. Tickets and kitchen orders need a thermal printer.",
     "errAssignRole": "Could not assign the role",
     "errTestPrint": "Test print failed",
     "routingTitle": "Order routing",
