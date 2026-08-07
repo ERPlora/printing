@@ -4,6 +4,10 @@
     "printing": { "label": "Printers" },
     "routing": { "label": "Routing" }
   },
+  "setup": {
+    "title": "Your printer",
+    "description": "Put your business details on the receipt and assign the printer that prints it."
+  },
   "ui": {
     "printersTitle": "Printers",
     "printersIntro": "Configure receipt printing and the network printers detected by the Bridge.",

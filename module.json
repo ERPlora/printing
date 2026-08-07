@@ -60,6 +60,23 @@
       "component": "erp-printing-routing"
     }
   ],
+  "setup": {
+    "query": "printing.settings.get",
+    "configured_when": [
+      {
+        "field": "receipt_header",
+        "truthy": true
+      }
+    ],
+    "title": "Your printer",
+    "description": "Put your business details on the receipt and assign the printer that prints it.",
+    "icon": "print-outline",
+    "route": "/m/printing/printing",
+    "permission": "printing.manage_settings",
+    "countries": [],
+    "order": 70,
+    "required": false
+  },
   "migrations": {
     "postgres": [
       "migrations/postgres/001_init.sql"

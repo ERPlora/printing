@@ -4,6 +4,10 @@
     "printing": { "label": "Impresoras" },
     "routing": { "label": "Enrutamiento" }
   },
+  "setup": {
+    "title": "Tu impresora",
+    "description": "Pon los datos de tu negocio en el tique y asigna la impresora que lo imprime."
+  },
   "ui": {
     "printersTitle": "Impresoras",
     "printersIntro": "Configura la impresión de tickets y las impresoras de red detectadas por el Bridge.",
