@@ -1,8 +1,12 @@
 {
   "name": "Printing",
   "navigation": {
-    "printing": { "label": "Printers" },
-    "routing": { "label": "Routing" }
+    "printing": {
+      "label": "Printers"
+    },
+    "routing": {
+      "label": "Routing"
+    }
   },
   "setup": {
     "title": "Your printer",
@@ -10,7 +14,7 @@
   },
   "ui": {
     "printersTitle": "Printers",
-    "printersIntro": "Configure receipt printing and the network printers detected by the Bridge.",
+    "printersIntro": "Configure receipt printing and the printers found on this network.",
     "ticketSettings": "Ticket settings",
     "receiptHeader": "Receipt header",
     "receiptHeaderPlaceholder": "My business · Tax ID · address",
@@ -26,8 +30,8 @@
     "networkPrinters": "Network printers",
     "scanning": "Scanning…",
     "rescan": "Rescan",
-    "bridgeConnected": "Bridge connected",
-    "bridgeOffline": "The Bridge is not running on this device. Install and start it to detect printers.",
+    "printerReady": "This device can reach printers",
+    "hardwareUnavailable": "This device cannot reach printers from the browser. Install the ERPlora app on the device that is connected to the printer and open your business from there.",
     "noPrintersFound": "No network printers (port 9100) were found on this subnet.",
     "rolePlaceholder": "Role",
     "test": "Test",

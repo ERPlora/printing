@@ -1,8 +1,12 @@
 {
   "name": "Impresión",
   "navigation": {
-    "printing": { "label": "Impresoras" },
-    "routing": { "label": "Enrutamiento" }
+    "printing": {
+      "label": "Impresoras"
+    },
+    "routing": {
+      "label": "Enrutamiento"
+    }
   },
   "setup": {
     "title": "Tu impresora",
@@ -10,7 +14,7 @@
   },
   "ui": {
     "printersTitle": "Impresoras",
-    "printersIntro": "Configura la impresión de tickets y las impresoras de red detectadas por el Bridge.",
+    "printersIntro": "Configura la impresión de tickets y las impresoras encontradas en esta red.",
     "ticketSettings": "Ajustes del ticket",
     "receiptHeader": "Cabecera del recibo",
     "receiptHeaderPlaceholder": "Mi negocio · NIF · dirección",
@@ -26,8 +30,8 @@
     "networkPrinters": "Impresoras en la red",
     "scanning": "Escaneando…",
     "rescan": "Re-escanear",
-    "bridgeConnected": "Bridge conectado",
-    "bridgeOffline": "El Bridge no está corriendo en este equipo. Instálalo y arráncalo para detectar impresoras.",
+    "printerReady": "Este dispositivo puede llegar a las impresoras",
+    "hardwareUnavailable": "Desde el navegador, este dispositivo no puede llegar a las impresoras. Instala la app de ERPlora en el dispositivo conectado a la impresora y abre tu negocio desde ahí.",
     "noPrintersFound": "No se encontraron impresoras de red (puerto 9100) en esta subred.",
     "rolePlaceholder": "Rol",
     "test": "Probar",

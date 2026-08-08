@@ -6,10 +6,14 @@ import esLocale from '../../../locales/es.json';
 import enLocale from '../../../locales/en.json';
 const CATALOG: Record<string, unknown> = { es: esLocale, en: enLocale };
 
-// Web Component del módulo 'printing': ajustes de impresión (BD) + impresoras detectadas por el
-// Bridge. TODO pasa por el cliente del Hub (globalThis.erplora): datos por .query/.command y
-// hardware por .peripherals. El módulo NUNCA habla con el Bridge directo — el shell elige el
-// transporte (ws-localhost en web-PWA, invoke en Tauri). ARQUITECTURA.md §2.7.
+// Web Component del módulo 'printing': ajustes de impresión (BD) + impresoras alcanzables desde
+// ESTE dispositivo. TODO pasa por el cliente del Hub (globalThis.erplora): datos por
+// .query/.command y hardware por .peripherals. El módulo NUNCA habla con el hardware directo.
+//
+// ADR-0196 §3: el Bridge standalone y su canal WS a localhost ya NO existen. Quien tiene el
+// hardware es la app instalada (`erplora-app`); en un navegador a secas `detect()` contesta
+// `{online:false}` y toda operación de periférico rechaza con `hardware_unavailable`. Por eso el
+// aviso de este panel manda a instalar LA APP, no a arrancar nada. ARQUITECTURA.md §2.7.
 
 interface ErploraClientLike {
   query<T = unknown>(name: string, params?: Record<string, unknown>): Promise<T>;
@@ -68,21 +72,21 @@ export class ErpPrintingSettings extends LitElement {
   @state() private saved = false;
   @state() private error = '';
 
-  @state() private bridgeOnline = false;
-  @state() private bridgeVersion = '';
+  @state() private hardwareOnline = false;
+  @state() private appVersion = '';
   @state() private scanning = false;
   @state() private printers: BridgePrinter[] = [];
   @state() private devices: BridgeDevice[] = [];
-  @state() private bridgeError = '';
+  @state() private hardwareError = '';
 
-  /** Hardware vía el cliente del Hub (no un BridgeClient propio). */
+  /** Hardware vía el cliente del Hub (nunca un cliente de periféricos propio). */
   private get peripherals(): BridgeTransport {
     return erplora().peripherals;
   }
 
   async firstUpdated(): Promise<void> {
     await this.loadSettings();
-    await this.refreshBridge();
+    await this.refreshHardware();
   }
 
   private async loadSettings(): Promise<void> {
@@ -108,29 +112,29 @@ export class ErpPrintingSettings extends LitElement {
     }
   }
 
-  private async refreshBridge(): Promise<void> {
-    this.bridgeError = '';
+  private async refreshHardware(): Promise<void> {
+    this.hardwareError = '';
     const status = await this.peripherals.detect();
-    this.bridgeOnline = status.online;
-    this.bridgeVersion = status.version ?? '';
+    this.hardwareOnline = status.online;
+    this.appVersion = status.version ?? '';
     if (status.online) await this.scan();
   }
 
   private async scan(): Promise<void> {
     this.scanning = true;
-    this.bridgeError = '';
+    this.hardwareError = '';
     try {
       this.printers = await this.peripherals.discoverPrinters();
       this.devices = await this.peripherals.getDevices();
     } catch (e) {
-      this.bridgeError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errScan');
+      this.hardwareError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errScan');
     } finally {
       this.scanning = false;
     }
   }
 
   /**
-   * Clave estable de la impresora en el registro del Bridge: su MAC si el sistema la resolvió por
+   * Clave estable de la impresora en el registro de periféricos: su MAC si el sistema la resolvió por
    * ARP y, si no, su propio `id` (`network:{ip}:{port}`).
    *
    * Antes esto exigía MAC y abortaba sin ella, así que en Android —donde ARP **nunca** resuelve—
@@ -144,35 +148,35 @@ export class ErpPrintingSettings extends LitElement {
     // Aviso, no bloqueo: el descubrimiento solo puede afirmar "es de oficina" cuando la impresora
     // anuncia IPP, así que una A4 que no lo anuncie llegaría igual aquí. Bloquear daría una falsa
     // sensación de garantía; avisar informa sin impedir el caso raro legítimo.
-    this.bridgeError =
+    this.hardwareError =
       printer.category === 'a4' ? erplora().t(CATALOG, 'ui.warnA4Printer') : '';
     try {
       this.devices = await this.peripherals.setDeviceRole(this.deviceKeyOf(printer), role);
     } catch (e) {
-      this.bridgeError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errAssignRole');
+      this.hardwareError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errAssignRole');
     }
   }
 
   private async test(printer: BridgePrinter): Promise<void> {
-    this.bridgeError = '';
+    this.hardwareError = '';
     try {
       await this.peripherals.testPrint(printer.id);
     } catch (e) {
-      this.bridgeError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errTestPrint');
+      this.hardwareError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errTestPrint');
     }
   }
 
   private roleOf(printer: BridgePrinter): string {
-    // Se casa por `key` (siempre presente en el bridge Rust), no por MAC: `key` cae al
+    // Se casa por `key` (siempre presente en el host Rust), no por MAC: `key` cae al
     // `printer_id` cuando no hay ARP, que es el caso permanente en Android.
-    // El `?? x.mac` es el puente para el bridge Kotlin, que aún no emite `key`; se puede quitar
-    // cuando ese bridge se retire.
+    // El `?? x.mac` es el puente para el host Kotlin, que aún no emite `key`; se puede quitar
+    // cuando ese host se retire.
     const key = this.deviceKeyOf(printer);
     const d = this.devices.find((x) => (x.key ?? x.mac) === key);
     return d?.role ?? '';
   }
 
-  // Etiqueta i18n para un rol/estación lógica (el `value=` enviado al Bridge sigue siendo el enum).
+  // Etiqueta i18n para un rol/estación lógica (el `value=` enviado al host sigue siendo el enum).
   private roleLabel(role: string): string {
     const keys: Record<string, string> = {
       receipt: 'ui.roleReceipt',
@@ -250,15 +254,15 @@ export class ErpPrintingSettings extends LitElement {
       <section>
         <div class="row">
           <h3 style="margin:0">${t('ui.networkPrinters')}</h3>
-          <ion-button size="small" fill="outline" ?disabled=${this.scanning} @click=${() => this.refreshBridge()}>
+          <ion-button size="small" fill="outline" ?disabled=${this.scanning} @click=${() => this.refreshHardware()}>
             ${this.scanning ? t('ui.scanning') : t('ui.rescan')}
           </ion-button>
         </div>
-        ${this.bridgeOnline
-          ? html`<p class="muted">${t('ui.bridgeConnected')}${this.bridgeVersion ? html` · v${this.bridgeVersion}` : nothing}.</p>`
-          : html`<p class="err">${t('ui.bridgeOffline')}</p>`}
-        ${this.bridgeError ? html`<p class="err">${this.bridgeError}</p>` : nothing}
-        ${this.bridgeOnline && this.printers.length === 0 && !this.scanning
+        ${this.hardwareOnline
+          ? html`<p class="muted">${t('ui.printerReady')}${this.appVersion ? html` · v${this.appVersion}` : nothing}.</p>`
+          : html`<p class="err">${t('ui.hardwareUnavailable')}</p>`}
+        ${this.hardwareError ? html`<p class="err">${this.hardwareError}</p>` : nothing}
+        ${this.hardwareOnline && this.printers.length === 0 && !this.scanning
           ? html`<p class="muted">${t('ui.noPrintersFound')}</p>`
           : nothing}
         ${this.printers.map(
