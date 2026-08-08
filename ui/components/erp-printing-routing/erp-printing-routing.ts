@@ -183,6 +183,8 @@ export class ErpPrintingRouting extends LitElement {
           .serverSide=${true}
           .fill=${true}
           .addable=${true}
+          .views=${true}
+          .cardTitle=${(row: Record<string, unknown>) => String(row.category ?? row.station ?? '—')}
           .columns=${this.columns}
           .rows=${this.ctrl?.rows ?? []}
           .total=${this.ctrl?.total ?? 0}
