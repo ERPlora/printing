@@ -1,5 +1,6 @@
 {
   "name": "Impresión",
+  "description": "Impresión de tiques, comandas de cocina y etiquetas desde el dispositivo que tengas conectado.",
   "navigation": {
     "printing": {
       "label": "Impresoras"
