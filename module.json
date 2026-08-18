@@ -19,6 +19,9 @@
     ]
   },
   "depends_on": [],
+  "capabilities": {
+    "printer": {}
+  },
   "permissions": [
     "printing.view_settings",
     "printing.manage_settings",
@@ -79,7 +82,8 @@
   },
   "migrations": {
     "postgres": [
-      "migrations/postgres/001_init.sql"
+      "migrations/postgres/001_init.sql",
+      "migrations/postgres/002_jobs.sql"
     ]
   },
   "queries": {
@@ -150,7 +154,26 @@
       "ai": {
         "description": "Removes a category routing rule"
       }
+    },
+    "printing.jobs.create": {
+      "permission": "printing.print",
+      "transaction": true,
+      "schema": "schemas/jobs_create.json",
+      "sql": [
+        "commands/jobs_create.sql"
+      ],
+      "emit": [
+        "printing.print.due"
+      ],
+      "ai": {
+        "description": "Sends a document (receipt, kitchen order, label…) to the hub's print queue; jobId dedups repeated requests"
+      }
     }
+  },
+  "events": {
+    "emits": [
+      "printing.print.due"
+    ]
   },
   "ui": {
     "entry": "dist/printing.esm.js"
