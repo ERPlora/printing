@@ -13,13 +13,23 @@ That split explains almost every question about this module:
 - A printer that does not respond is a **device** problem; nothing in these settings fixes it.
 - Two tills can share the same settings and have completely different printers.
 
-## Nothing is queued, retried or recorded
+## The queue is the hub's; this module only feeds it
 
-There is no print spool, no retry, no log of what came out. If a receipt fails to print, the hub does
-not know and will not try again.
+The print spool, its retries and the record of what came out belong to the hub (ADR-0196 §6), not to
+this module. What this module keeps is the record of what it **asked** to print through
+`printing.jobs.create` (see below) — never the outcome.
 
 Reprinting is done from wherever the document lives — the sale, the invoice, the kitchen ticket — not
 from here.
+
+## Asking the hub to print: `printing.jobs.create`
+
+Anything that is not a screen — a flow, another module — prints through this command. It takes the
+document in the shape the queue takes it (`jobId`, `documentType`, `document`, optional `role` and
+`format`), keeps a record of the request and emits `printing.print.due`; the hub queues the job and
+the device with the matching role prints it. `jobId` is the idempotency key: the same `jobId` twice
+is **one** ticket, so a retried flow does not print twice. Kitchen tickets keep firing from the order
+through `kitchen`'s stations — this door **complements** that path, it does not replace it.
 
 ## The receipt is not the fiscal document
 

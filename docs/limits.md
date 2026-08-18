@@ -3,11 +3,14 @@
 ## Known limitations you should know about
 
 - **No printing happens in the hub.** The device does it; the hub only holds the configuration.
-- **No print queue, no retry, no history.** A failed print is not recorded and not retried.
+- **The print queue is the hub's, not this module's.** `printing.jobs.create` hands a document to
+  it and keeps its own record of the request (`printing_jobs`); what happened on paper is known by
+  the hub, not by this module.
 - **No printer discovery here.** The local app finds printers.
 - **A routing category is unvalidated free text.** A typo produces a rule that never matches.
 - **No label printing**, despite the keyword in the module description.
-- **This module emits no events**, so nothing else can react to printing.
+- **One event only: `printing.print.due`**, the print intention the hub consumes. There is no
+  `printed`/`failed` event yet, so nothing can react to the outcome of a job.
 
 ## Accepted values
 
@@ -52,8 +55,12 @@ the routing, **print** and **open the drawer** — but cannot change any configu
 
 ## Dependencies
 
-**None in either direction.** Printing depends on no module and no module depends on it. It emits no
-events and listens to none.
+**None in either direction.** Printing depends on no module and no module depends on it. It listens to
+no events; it emits `printing.print.due` (consumed by the hub itself, not by another module).
+
+To let anything reach paper through `printing.jobs.create`, the owner must **grant the `printer`
+capability** to this module (Settings → Permissions). Without the grant the request is recorded, the
+event is emitted, and the hub refuses to queue it (`host.print: capability denied` in the dead-letter).
 
 Practical consequences:
 

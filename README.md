@@ -5,12 +5,15 @@ apertura de cajón y el enrutado **categoría → estación** (`receipt`/`kitche
 
 > ⚠️ **Aquí NO se imprime.** La impresión real y la apertura del cajón las ejecuta **el dispositivo**
 > (la app de ERPlora que tiene la impresora), no el hub. Si no sale el papel, casi nunca es un
-> problema de estos ajustes. Y **no hay cola, ni reintento, ni historial** de impresión.
+> problema de estos ajustes. La **cola** de impresión vive en el hub (ADR-0196 §6) y este módulo
+> la alimenta solo por una puerta: el command `printing.jobs.create` (ver abajo).
 
 <!-- -->
 
-> **Module id:** `printing`. **Depende de:** nada — y nada depende de él. No emite ni escucha eventos.
-> Módulo declarativo puro (SQL + Web Components), sin handler WASM.
+> **Module id:** `printing`. **Depende de:** nada — y nada depende de él. No escucha eventos; **emite
+> uno**: `printing.print.due` (la intención de impresión que consume el listener-host `host.print`
+> del runtime — ADR-0349, hub#957). Módulo declarativo puro (SQL + Web Components), sin handler WASM.
+> Pide la capability **`printer`**: sin concederla, ningún trabajo llega a la cola.
 
 ## Documentación de usuario — [`docs/`](docs/)
 
@@ -43,8 +46,15 @@ tiene **su propia** cabecera/pie de recibo en sus ajustes.
 | query | `printing.routing.list` | `view_routing` |
 | command | `printing.settings.update` (snapshot completo, 7 campos requeridos) | `manage_settings` |
 | command | `printing.routing.set` / `.remove` | `manage_routing` |
+| command | `printing.jobs.create` — `{jobId, documentType, document, role?, format?}` → registra la petición y **emite `printing.print.due`**; el runtime la encola en `_print_queue` (idempotente por `jobId`). Es la puerta por la que un **flujo** (step `command`) o cualquier módulo saca papel | `print` |
 | permiso | `printing.print` · `printing.open_drawer` (acciones del dispositivo, gateadas en el hub) | — |
-| emite / escucha | — | — |
+| capability | `printer` — la exige `deliver_host_print` (declarada **y** concedida) antes de encolar | — |
+| emite | `printing.print.due` (`events.emits`; declarado ANTES de que nadie lo emita — regla hub#240/2b) | — |
+| escucha | — | — |
+
+`printing.job.printed` / `printing.job.failed` **no se declaran**: el desenlace lo conoce el runtime
+(`print_ws.rs`/`print_drain.rs`) y hoy no tiene puente hacia los eventos de este módulo; declarar un
+evento que nadie emite es un flujo que nunca se dispara.
 
 Navegación: `erp-printing-settings` («Printers») y `erp-printing-routing` («Routing»).
 

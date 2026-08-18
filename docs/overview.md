@@ -31,7 +31,10 @@ device, the printer or the connection.
 
 ## Modules it connects to
 
-**Depends on nothing**, and nothing depends on it. It emits no events and listens to none.
+**Depends on nothing**, and nothing depends on it. It listens to none. It emits **one** event,
+`printing.print.due`: the print intention behind `printing.jobs.create`, which the hub's own
+listener-host turns into a job in the print queue. That command is how a flow (or another module)
+puts paper out without owning a printer.
 
 That isolation is why a category is a string rather than a reference: the module works whether or not
 a catalogue exists.

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "printing.jobs.create payload",
+  "description": "A print intention, in the shape the hub's print queue takes (`PrintIntent`, hub/crates/runtime/src/host_print.rs). camelCase on purpose: they are `NewPrintJob`'s names, the ones the shell already speaks.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "jobId",
+    "documentType",
+    "document"
+  ],
+  "properties": {
+    "jobId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Idempotency key chosen by the caller: two requests with the same jobId are ONE ticket."
+    },
+    "documentType": {
+      "type": "string",
+      "enum": [
+        "receipt",
+        "kitchen_order",
+        "invoice",
+        "delivery_note",
+        "barcode_label",
+        "cash_session_report",
+        "prebill",
+        "generic"
+      ],
+      "description": "Which document this is — the queue's closed vocabulary (print_queue::DOCUMENT_TYPES)."
+    },
+    "document": {
+      "type": "object",
+      "description": "The structured document the renderer prints (never HTML, hub#501)."
+    },
+    "role": {
+      "type": "string",
+      "description": "Optional station override (receipt/kitchen/bar/label). Absent = the hub resolves the station from documentType (hub#987)."
+    },
+    "format": {
+      "type": "string",
+      "enum": [
+        "receipt",
+        "a4"
+      ],
+      "description": "Paper format. Absent = receipt."
+    }
+  }
+}
