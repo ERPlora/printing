@@ -3,7 +3,7 @@
   "name": "Printing",
   "description": "Receipt, kitchen and label printing from the device you have connected.",
   "icon": "print",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "agent": {
     "description": "Configures printing: ticket header/footer, paper width, auto-print on sale, and routing of order items to kitchen/bar stations. Actual printing and the cash drawer are driven by the device registered as a print host, which drains the hub's queue over the runtime WebSocket (ADR-0196).",
     "keywords": [
