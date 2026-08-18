@@ -79,3 +79,35 @@ describe('the catalog says the same thing the shell says', () => {
     expect(Object.keys(catalogs.es).sort()).toEqual(Object.keys(catalogs.en).sort());
   });
 });
+
+// printing#17: «Route orders to kitchen/bar» (`print_kitchen`) is a DEAD control since ADR-0144 —
+// the kitchen ticket fires from the order, routed by `kitchen`'s stations, and nobody reads that
+// setting. A switch that promises a behaviour that does not exist has to leave the screen.
+describe('the dead «route to kitchen» switch is gone (ADR-0144, printing#17)', () => {
+  beforeEach(() => mountWith(false));
+
+  it('renders exactly two toggles: print receipt + open drawer on checkout', async () => {
+    const el = await montar();
+    const toggles = Array.from(el.shadowRoot.querySelectorAll('ion-toggle'));
+    expect(toggles).toHaveLength(2);
+    const text = el.shadowRoot.textContent ?? '';
+    expect(text).not.toMatch(/cocina\/barra|kitchen\/bar/i);
+  });
+
+  it('the i18n key `ui.routeToKitchen` is removed from both catalogs', () => {
+    expect(catalogs.en).not.toHaveProperty('routeToKitchen');
+    expect(catalogs.es).not.toHaveProperty('routeToKitchen');
+  });
+});
+
+// printing#17 §1: the three `.row` toggles rendered flush against each other (no vertical gap),
+// reading as one overlapped block. happy-dom does not lay out, so the contract is fixed on the
+// stylesheet: `.row` carries the same bottom margin as `.field`.
+describe('the setting rows are vertically separated (printing#17)', () => {
+  it('`.row` declares a margin-bottom like `.field` does', async () => {
+    const mod = await import('./erp-printing-settings');
+    const cssText = String((mod.ErpPrintingSettings as unknown as { styles: { cssText: string } }).styles.cssText);
+    const row = cssText.match(/\.row\s*\{([^}]*)\}/)?.[1] ?? '';
+    expect(row, '`.row` has no margin-bottom: the toggles stack flush').toMatch(/margin-bottom\s*:/);
+  });
+});

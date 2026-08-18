@@ -17,13 +17,13 @@
 | Paper width | `80` or `58` (millimetres) |
 | Auto-print on sale | 0 or 1 |
 | Open drawer on sale | 0 or 1 |
-| Print kitchen | 0 or 1 |
+| Print kitchen | 0 or 1 (legacy column, no control on screen; nothing reads it since ADR-0144) |
 
 ## Required fields
 
 | Action | Must provide |
 |---|---|
-| Update settings | **all seven**: `receipt_header`, `receipt_footer`, `paper_width`, `auto_print_on_sale`, `open_drawer_on_sale`, `print_kitchen` |
+| Update settings | **all six**: `receipt_header`, `receipt_footer`, `paper_width`, `auto_print_on_sale`, `open_drawer_on_sale`, `print_kitchen` |
 | Set a routing rule | `category`, `station` |
 | Remove a routing rule | `category` |
 

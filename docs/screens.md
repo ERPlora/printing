@@ -14,10 +14,10 @@ The receipt configuration, plus the network printers the local app has detected.
 3. Pick the **paper width**: **80 mm** or **58 mm**. Those are the only two values.
 4. Decide **auto-print on sale**: print the receipt automatically when a sale is charged.
 5. Decide **open drawer on sale**: send the drawer-kick with that receipt.
-6. Decide **print kitchen**: whether kitchen lines are printed.
-7. Save.
+6. Save.
 
-All seven fields are sent together — the form saves a complete snapshot, not one field at a time.
+The form saves a complete snapshot, not one field at a time. There is no «print kitchen» switch:
+the kitchen ticket fires from the order and is routed by `kitchen`'s stations (ADR-0144).
 
 ### Assign the printer
 

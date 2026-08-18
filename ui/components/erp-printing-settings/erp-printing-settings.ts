@@ -30,6 +30,11 @@ interface PrintingSettings {
   paper_width: number;
   auto_print_on_sale: number;
   open_drawer_on_sale: number;
+  /**
+   * Legacy column, kept only so `printing.settings.update` keeps validating: since ADR-0144 the
+   * kitchen ticket fires from the order (routed by `kitchen`'s stations) and nobody reads this
+   * flag, so it has no control on screen (printing#17). Round-tripped as stored.
+   */
   print_kitchen: number;
 }
 
@@ -57,7 +62,7 @@ export class ErpPrintingSettings extends LitElement {
     h3 { margin:1.25rem 0 .5rem; font-size:1rem; }
     section { margin-bottom:1rem; }
     .field { display:flex; flex-direction:column; gap:.25rem; margin-bottom:.6rem; max-width:520px; }
-    .row { display:flex; align-items:center; gap:.5rem; justify-content:space-between; max-width:520px; }
+    .row { display:flex; align-items:center; gap:.5rem; justify-content:space-between; max-width:520px; margin-bottom:.6rem; }
     .printer { display:flex; align-items:center; gap:.6rem; padding:.6rem .75rem; border:1px solid #0001; border-radius:.5rem; margin-bottom:.5rem; flex-wrap:wrap; }
     .printer .id { font-family:ui-monospace, monospace; font-size:.8rem; opacity:.7; }
     .grow { flex:1; min-width:160px; }
@@ -238,11 +243,6 @@ export class ErpPrintingSettings extends LitElement {
           <label>${t('ui.openDrawerOnSale')}</label>
           <ion-toggle ?checked=${s.open_drawer_on_sale === 1}
             @ionChange=${(e: Event) => this.set('open_drawer_on_sale', (e.target as HTMLInputElement).checked ? 1 : 0)}></ion-toggle>
-        </div>
-        <div class="row">
-          <label>${t('ui.routeToKitchen')}</label>
-          <ion-toggle ?checked=${s.print_kitchen === 1}
-            @ionChange=${(e: Event) => this.set('print_kitchen', (e.target as HTMLInputElement).checked ? 1 : 0)}></ion-toggle>
         </div>
         <ion-button size="small" ?disabled=${this.saving} @click=${() => this.saveSettings()}>
           ${this.saving ? t('ui.saving') : t('ui.saveSettings')}
