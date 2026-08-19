@@ -2,7 +2,7 @@
 --
 -- The module's own ledger of what it ASKED the hub to print through `printing.jobs.create`. The
 -- queue itself is the runtime's `_print_queue` (ADR-0196 §6, a system table this module cannot
--- read); this table is the module-side record — who requested which document, when — keyed by
+-- read). This table is the module-side record — who requested which document, when — keyed by
 -- the same `job_id` the queue dedups on. Same portable subset as 001 (ADR-0007): TEXT ids, TEXT
 -- ISO-8601 dates, INTEGER 0/1 flags. Row contract §2.5: hub_id + soft-delete + audit.
 CREATE TABLE IF NOT EXISTS printing_jobs (
