@@ -3,9 +3,6 @@
   "navigation": {
     "printing": {
       "label": "Printers"
-    },
-    "routing": {
-      "label": "Routing"
     }
   },
   "setup": {
@@ -44,22 +41,6 @@
     "warnA4Printer": "This looks like an office (A4) printer and does not understand receipts. Tickets and kitchen orders need a thermal printer.",
     "errAssignRole": "Could not assign the role",
     "errTestPrint": "Test print failed",
-    "routingTitle": "Order routing",
-    "routingIntro": "Assign each product category to a station (receipt, kitchen or bar). Without a rule, products go to the kitchen by default; the «receipt» station is excluded from orders.",
-    "categoryPlaceholder": "Category (e.g. Drinks)",
-    "stationPlaceholder": "Station…",
-    "assign": "Assign",
-    "stationReceipt": "Receipt",
-    "stationKitchen": "Kitchen",
-    "stationBar": "Bar",
-    "colCategory": "Category",
-    "colStation": "Station",
-    "actionEdit": "Edit",
-    "actionDelete": "Delete",
-    "searchRouting": "Search category or station…",
-    "loading": "Loading…",
-    "emptyRouting": "No rules: everything goes to the kitchen by default.",
-    "errSaveRule": "Could not save the rule",
-    "errRemoveRule": "Could not remove the rule"
+    "loading": "Loading…"
   }
 }

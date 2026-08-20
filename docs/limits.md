@@ -7,7 +7,8 @@
   it and keeps its own record of the request (`printing_jobs`); what happened on paper is known by
   the hub, not by this module.
 - **No printer discovery here.** The local app finds printers.
-- **A routing category is unvalidated free text.** A typo produces a rule that never matches.
+- **This module routes nothing.** The Routing tab, its query and its two commands were retired in
+  printing#25 — nothing had read them since ADR-0144. Routing by category is `kitchen` → Stations.
 - **No label printing**, despite the keyword in the module description.
 - **One event only: `printing.print.due`**, the print intention the hub consumes. There is no
   `printed`/`failed` event yet, so nothing can react to the outcome of a job.
@@ -16,27 +17,21 @@
 
 | Field | Values |
 |---|---|
-| Station | `receipt`, `kitchen`, `bar` |
 | Paper width | `80` or `58` (millimetres) |
 | Auto-print on sale | 0 or 1 |
 | Open drawer on sale | 0 or 1 |
-| Print kitchen | 0 or 1 (legacy column, no control on screen; nothing reads it since ADR-0144) |
+| Print kitchen | 0 or 1 (legacy column, no control on screen; nothing reads it since ADR-0144, but the `settings.update` payload still requires it) |
 
 ## Required fields
 
 | Action | Must provide |
 |---|---|
 | Update settings | **all six**: `receipt_header`, `receipt_footer`, `paper_width`, `auto_print_on_sale`, `open_drawer_on_sale`, `print_kitchen` |
-| Set a routing rule | `category`, `station` |
-| Remove a routing rule | `category` |
 
 ## Caps and sizes
 
 | Limit | Value |
 |---|---|
-| Rows per page (routing rules) | 50 |
-| Maximum rows a paginated request may ask for | 500 |
-| Stations per category | 1 |
 | Settings rows per hub | 1 |
 
 ## Permissions per action
@@ -45,13 +40,14 @@
 |---|---|
 | See the printing settings | `printing.view_settings` |
 | Change the printing settings | `printing.manage_settings` |
-| See the routing rules | `printing.view_routing` |
-| Set or remove a routing rule | `printing.manage_routing` |
 | Print | `printing.print` |
 | Open the cash drawer | `printing.open_drawer` |
 
-By role: **admin** has everything. **manager** has all six. **employee** can **see** the settings and
-the routing, **print** and **open the drawer** — but cannot change any configuration.
+By role: **admin** has everything. **manager** has all four. **employee** can **see** the settings,
+**print** and **open the drawer** — but cannot change any configuration.
+
+`printing.view_routing` and `printing.manage_routing` **no longer exist** (printing#25): they gated a
+screen nothing read.
 
 ## Dependencies
 
@@ -66,9 +62,9 @@ Practical consequences:
 
 - **Installing it does not make anything print.** The device must be running the ERPlora app and have
   a printer.
-- **`kitchen` does not use these routing rules.** It has its own stations, its own destinations and
-  its own printer roles, and the kitchen ticket is printed by the shell so that it prints even when
-  the kitchen display is not open.
+- **Routing by category is `kitchen`'s job.** It has its own stations, its own destinations and its
+  own printer roles, and the kitchen ticket is printed by the shell so that it prints even when the
+  kitchen display is not open. The rules that used to live here never did anything.
 - **`sales` does not read these settings for its receipt text.** The till has its own receipt header,
   footer and marketing QR in its own settings. If your header appears in one place and not another,
   that is why.
@@ -88,13 +84,16 @@ what is loaded.
 **"My header does not appear on the sale receipt."** `sales` has its own receipt header and footer in
 its settings. Check there too.
 
-**"Kitchen lines do not print."** If `kitchen` is installed, its **stations** decide: a station whose
-destination is screen-only never goes to paper. This module's routing does not override that.
+**"Kitchen lines do not print."** `kitchen`'s **stations** decide: a station whose destination is
+screen-only never goes to paper.
 
-**"A routing rule does nothing."** The category string must match exactly. It is free text with no
-validation, so a rename in the catalogue or a typo leaves an orphan rule.
+**"Where did the Routing tab go?"** Retired in printing#25 — nothing ever applied those rules
+(ADR-0144). Route by category in `kitchen` → **Stations**, which does apply them (sales#12,
+kitchen#32). Your old rows are still in `printing_routing`, unreachable, and were not destroyed.
 
-**"I set two stations for one category."** You cannot; setting a rule replaces the previous one.
+**"I save the settings and the form comes back empty."** Fixed in printing#25: the save now revives a
+soft-deleted settings row. If you are on an older version, that state also made the `printing.setup`
+checklist item impossible to tick.
 
 **"A print failed — where do I see it?"** Nowhere. There is no history and no retry. Reprint from the
 document itself.

@@ -25,8 +25,6 @@
   "permissions": [
     "printing.view_settings",
     "printing.manage_settings",
-    "printing.view_routing",
-    "printing.manage_routing",
     "printing.print",
     "printing.open_drawer"
   ],
@@ -37,14 +35,11 @@
     "manager": [
       "printing.view_settings",
       "printing.manage_settings",
-      "printing.view_routing",
-      "printing.manage_routing",
       "printing.print",
       "printing.open_drawer"
     ],
     "employee": [
       "printing.view_settings",
-      "printing.view_routing",
       "printing.print",
       "printing.open_drawer"
     ]
@@ -55,12 +50,6 @@
       "label": "Printers",
       "icon": "print",
       "component": "erp-printing-settings"
-    },
-    {
-      "id": "routing",
-      "label": "Routing",
-      "icon": "funnel",
-      "component": "erp-printing-routing"
     }
   ],
   "setup": {
@@ -93,32 +82,6 @@
       "ai": {
         "description": "Retrieves the printing settings (receipt header/footer, paper width, auto-print and auto-open-drawer on sale)"
       }
-    },
-    "printing.routing.list": {
-      "permission": "printing.view_routing",
-      "sql": "queries/routing_list.sql",
-      "list": {
-        "search": [
-          "category",
-          "station"
-        ],
-        "sort": [
-          "category",
-          "station",
-          "created_at"
-        ],
-        "default_sort": "category",
-        "default_dir": "asc",
-        "filters": {
-          "station": {
-            "op": "eq"
-          }
-        },
-        "page_size": 50
-      },
-      "ai": {
-        "description": "Lists the item-category to station (receipt/kitchen/bar) routing rules"
-      }
     }
   },
   "commands": {
@@ -131,28 +94,6 @@
       ],
       "ai": {
         "description": "Updates the printing settings (header/footer/paper width/auto-print/auto-open-drawer)"
-      }
-    },
-    "printing.routing.set": {
-      "permission": "printing.manage_routing",
-      "transaction": true,
-      "schema": "schemas/routing_set.json",
-      "sql": [
-        "commands/routing_upsert.sql"
-      ],
-      "ai": {
-        "description": "Assigns a station (receipt/kitchen/bar) to a product category"
-      }
-    },
-    "printing.routing.remove": {
-      "permission": "printing.manage_routing",
-      "transaction": true,
-      "schema": "schemas/routing_remove.json",
-      "sql": [
-        "commands/routing_delete.sql"
-      ],
-      "ai": {
-        "description": "Removes a category routing rule"
       }
     },
     "printing.jobs.create": {

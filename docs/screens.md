@@ -1,6 +1,6 @@
 # Printing — Screens
 
-The module contributes two tabs to the hub navigation: **Printers** and **Routing**.
+The module contributes **one** tab to the hub navigation: **Printers**.
 
 ## Printers — the printing settings
 
@@ -24,27 +24,19 @@ the kitchen ticket fires from the order and is routed by `kitchen`'s stations (A
 The list of printers is discovered by the ERPlora app on the device, not by this module. Which
 printer is used, and whether it is reachable, is a property of that device.
 
-## Routing — category to station
+## Routing — retired (printing#25)
 
-The rules that decide where a line is printed (`printing.routing.list`, 50 rows per page). Requires
-`printing.view_routing`. Sorted by category.
+There used to be a **Routing** tab here where you assigned product categories to stations. It is
+gone, and nothing is lost: **nothing ever read those rules**, and had not since ADR-0144 moved the
+kitchen ticket to fire from the order.
 
-- **Search** by category or station.
-- **Filter** by station.
+**Where to route by category now:** `kitchen` → **Stations**. That is the module that owns stations,
+and the category of a sold line reaches it for real (sales#12, verified in kitchen#32). Its routing
+is richer than this one was — explicit station, then product, then category — and, unlike the old
+tab, it works.
 
-### Add or change a rule
-
-1. Give the **product category** — a plain text name.
-2. Pick the **station**: `receipt`, `kitchen` or `bar`.
-3. Save.
-
-Setting a rule for a category that already has one **replaces** it: one category maps to one station.
-Requires `printing.manage_routing`.
-
-### Remove a rule
-
-Give the category. The rule disappears and that category stops being routed anywhere in particular.
-Requires `printing.manage_routing`.
+The `printing_routing` table is kept so nobody's old configuration is destroyed, but nothing in the
+product can reach it.
 
 ## Printing and opening the drawer
 

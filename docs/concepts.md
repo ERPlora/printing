@@ -52,38 +52,33 @@ cash drawer may be opened without printing.
 Those are the two thermal roll sizes the module accepts. The value changes how the receipt is
 laid out, so setting the wrong one produces a receipt that looks broken but prints fine.
 
-## One category, one station
+## This module does not route anything
 
-A routing rule maps a **product category** to one of `receipt`, `kitchen` or `bar`. Setting a rule for
-a category that already has one **replaces** it — there is no list of stations per category.
+It used to look as if it did. There was a **Routing** tab, a table, a query and two commands mapping
+a product category to `receipt` / `kitchen` / `bar` — and **nothing read any of it**, not since
+ADR-0144 made the kitchen ticket fire from the order. printing#25 retired the whole surface.
 
-A category with no rule is simply not routed by this module.
+Routing lives in `kitchen`, which is the module that owns stations:
 
-## A category here is a plain string
-
-It is **not** a reference to a category in the product catalogue. Nothing validates it, nothing links
-to it, and renaming a category in `inventory` does **not** update the rule here.
-
-That is deliberate: the module depends on nothing and must work with or without a catalogue. The cost
-is that a typo silently produces a rule that never matches.
-
-## If `kitchen` is installed, its stations are the real ones
-
-There are two overlapping mechanisms in the product, and knowing which one is acting matters:
-
-| | This module | `kitchen` |
+| | `kitchen` (alive) | `printing` (retired in #25) |
 |---|---|---|
-| Concept | A category mapped to `receipt` / `kitchen` / `bar` | Real stations, each with a destination (screen, printer or both) and a printer role |
-| Who prints | The device | The shell, grouped by printer role |
-| Knows about products | No — a category is a string | Yes, routing is per product |
+| Concept | Real stations, each with a destination (screen, printer or both) and a printer role | A category mapped to `receipt` / `kitchen` / `bar` |
+| Knows about products | Yes — explicit station, then product, then **category** | No — a category was a plain, unvalidated string |
+| Who prints | The shell, grouped by printer role, so it prints even with the kitchen display closed | Nobody. That was the problem |
 
-With `kitchen` installed, kitchen printing is driven by **its** stations. This module's routing is the
-simpler, older path.
+Since sales#12 the category of a sold line reaches `kitchen` for real (verified in kitchen#32), so
+the capability the old tab promised exists — in the right place.
 
 ## An employee can print and open the drawer
 
-Both are counter actions and both are granted to an employee. What an employee **cannot** do is change
-the settings or the routing rules — those need the manage permissions.
+Both are counter actions and both are granted to an employee. What an employee **cannot** do is
+change the settings — that needs `printing.manage_settings`.
+
+## Saving the settings brings them back
+
+The settings are one row per hub. If that row ever ends up soft-deleted — an import, a reset, some
+maintenance — saving from the screen **revives** it (printing#25). Before that fix the save reported
+success, the form came back empty, and the `printing.setup` checklist item could never be ticked.
 
 ## The settings form saves everything at once
 

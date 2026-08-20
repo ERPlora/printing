@@ -12,7 +12,7 @@ That is the whole module. It is small on purpose.
 
 This is the single most important thing to understand.
 
-**No printing happens inside this module.** It stores settings and routing rules. The actual printing
+**No printing happens inside this module.** It stores the receipt settings. The actual printing
 — and opening the cash drawer — is done **client-side**, by the ERPlora app running on the device
 that owns the printer.
 
@@ -23,9 +23,10 @@ device, the printer or the connection.
 
 - **It does not print or open a drawer.** It only says what should happen.
 - **It does not discover printers.** Discovery is done by the local app.
-- **It does not manage kitchen stations as entities.** `kitchen` has real stations with their own
-  destinations and printer roles. What this module has is a simple category-to-station mapping.
-- **It does not know about products or categories.** A category here is a plain string.
+- **It does not route anything.** The Routing tab, its table, its query and its two commands were
+  retired in printing#25: nothing had read them since ADR-0144. Routing by category is `kitchen` →
+  **Stations**, which owns stations for real and does apply them (sales#12, kitchen#32).
+- **It does not know about products or categories.** It has no reason to any more.
 - **It does not queue anything.** There is no retry, no spool, no history of what was printed.
 - **It does not print labels today**, despite the keyword. <!-- TODO: verify -->
 
@@ -36,20 +37,18 @@ device, the printer or the connection.
 listener-host turns into a job in the print queue. That command is how a flow (or another module)
 puts paper out without owning a printer.
 
-That isolation is why a category is a string rather than a reference: the module works whether or not
-a catalogue exists.
+That isolation is deliberate: the module has to work whether or not a catalogue exists.
 
-> ⚠️ **Two overlapping mechanisms exist in the product.** `kitchen` has its own station model, with a
-> destination (screen, printer or both) and a printer role per station, and the kitchen ticket is
-> printed by the shell. This module's category routing is the simpler, older path. If you have
-> `kitchen` installed, its stations are what drive kitchen printing.
+> ℹ️ **There used to be two overlapping routing mechanisms and only one worked.** `kitchen` has the
+> real station model — a destination (screen, printer or both) and a printer role per station — and
+> the kitchen ticket is printed by the shell, so it comes out even with the kitchen display closed.
+> This module's copy was retired in printing#25.
 
 ## The vocabulary
 
 | Concept | Meaning |
 |---|---|
-| **Station** | Where a printed line goes: `receipt`, `kitchen` or `bar` |
-| **Routing rule** | One product category mapped to one station |
+| **Printer role** | What a device's printer is for: `receipt`, `kitchen`, `bar` or `label`. A property of the DEVICE, not of a rule here |
 | **Paper width** | 80 mm or 58 mm |
 | **Auto-print on sale** | Print the receipt automatically when a sale is charged |
 | **Open drawer on sale** | Send the drawer-kick signal with that receipt |

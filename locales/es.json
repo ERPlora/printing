@@ -4,9 +4,6 @@
   "navigation": {
     "printing": {
       "label": "Impresoras"
-    },
-    "routing": {
-      "label": "Enrutamiento"
     }
   },
   "setup": {
@@ -45,22 +42,6 @@
     "warnA4Printer": "Esta impresora parece de oficina (A4) y no entiende tickets. Los tiques y comandas necesitan una impresora térmica.",
     "errAssignRole": "No se pudo asignar el rol",
     "errTestPrint": "Falló la impresión de prueba",
-    "routingTitle": "Enrutado de comandas",
-    "routingIntro": "Asigna cada categoría de producto a una estación (recibo, cocina o barra). Sin regla, los productos van a cocina por defecto; la estación «recibo» se excluye de las comandas.",
-    "categoryPlaceholder": "Categoría (p.ej. Bebidas)",
-    "stationPlaceholder": "Estación…",
-    "assign": "Asignar",
-    "stationReceipt": "Recibo",
-    "stationKitchen": "Cocina",
-    "stationBar": "Barra",
-    "colCategory": "Categoría",
-    "colStation": "Estación",
-    "actionEdit": "Editar",
-    "actionDelete": "Eliminar",
-    "searchRouting": "Buscar categoría o estación…",
-    "loading": "Cargando…",
-    "emptyRouting": "Sin reglas: todo va a cocina por defecto.",
-    "errSaveRule": "No se pudo guardar la regla",
-    "errRemoveRule": "No se pudo eliminar la regla"
+    "loading": "Cargando…"
   }
 }
