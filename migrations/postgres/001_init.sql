@@ -23,7 +23,18 @@ CREATE TABLE IF NOT EXISTS printing_settings (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_printing_settings_hub ON printing_settings (hub_id);
 
--- Enrutado: categoría de producto → estación (receipt|kitchen|bar). Para cocina/multi-impresora.
+-- Enrutado: categoría de producto → estación (receipt|kitchen|bar).
+--
+-- 🪦 SIN CONSUMIDOR desde ADR-0144, y sin puerta desde printing#25: no queda query, ni command, ni
+-- pantalla que lea o escriba esta tabla. El enrutado por categoría vive en `kitchen`
+-- (`kitchen_category_station`, `kitchen.stations.set_routing`, pantalla Estaciones) y la categoría
+-- de la línea le llega de verdad desde sales#12 — verificado en kitchen#32.
+--
+-- La tabla se CONSERVA a propósito, no por olvido: un DROP en una migración de módulo exige
+-- `kind: contract`, y por ADR-0269 una migración `contract` es justo lo que deja una versión SIN
+-- vuelta atrás. Las filas son configuración del comerciante, y destruirlas para recuperar unos
+-- kilobytes no compra nada y no se deshace. Sin query ni command, la tabla es inalcanzable.
+-- Fijado en `tests/routing_retired.contract.test.py`.
 CREATE TABLE IF NOT EXISTS printing_routing (
     id        TEXT PRIMARY KEY,
     hub_id    TEXT NOT NULL,
