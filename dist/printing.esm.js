@@ -1312,7 +1312,38 @@ var es_default = {
     warnA4Printer: "Esta impresora parece de oficina (A4) y no entiende tickets. Los tiques y comandas necesitan una impresora t\xE9rmica.",
     errAssignRole: "No se pudo asignar el rol",
     errTestPrint: "Fall\xF3 la impresi\xF3n de prueba",
-    loading: "Cargando\u2026"
+    loading: "Cargando\u2026",
+    queueTitle: "Cola de impresi\xF3n",
+    queueRefresh: "Refrescar",
+    queueRefreshing: "Refrescando\u2026",
+    queueAlertWaiting: "{waiting} trabajo(s) de impresi\xF3n de {role} llevan {age} esperando.",
+    queueNoDevice: "Ning\xFAn dispositivo de este rol est\xE1 conectado: instala la app de ERPlora en el dispositivo conectado a la impresora y abre tu negocio desde ah\xED.",
+    queueWaitingJobs: "En cola: {waiting}",
+    queueOldest: "el m\xE1s antiguo lleva {age}",
+    queueLiveHosts: "Imprime desde: {hosts}",
+    queueAllClear: "Todo al d\xEDa: la cola est\xE1 vac\xEDa y hay {n} dispositivo(s) conectado(s).",
+    queueAllClearNoHost: "Ahora mismo no hay nada en cola. No hay ning\xFAn dispositivo de impresi\xF3n conectado: los trabajos nuevos quedar\xE1n en la cola hasta que uno se conecte.",
+    statusReady: "Listo",
+    statusStalled: "En cola, sin impresora",
+    statusUnattended: "Sin impresora conectada",
+    jobPending: "Pendiente",
+    jobPrinting: "Imprimiendo",
+    jobDead: "Muerto",
+    jobAttempts: "intentos: {n}",
+    jobLastError: "\xDAltimo error: {error}",
+    jobAge: "esperando {age}",
+    errQueueLoad: "No se pudo leer la cola de impresi\xF3n.",
+    docKitchenOrder: "Comanda de cocina",
+    docReceipt: "Recibo",
+    docInvoice: "Factura",
+    docDeliveryNote: "Albar\xE1n",
+    docBarcodeLabel: "Etiqueta de c\xF3digo de barras",
+    docCashSessionReport: "Cierre de caja",
+    docPrebill: "Cuenta preliminar",
+    docGeneric: "Documento",
+    unitS: "s",
+    unitMin: "min",
+    unitH: "h"
   }
 };
 
@@ -1360,7 +1391,38 @@ var en_default = {
     warnA4Printer: "This looks like an office (A4) printer and does not understand receipts. Tickets and kitchen orders need a thermal printer.",
     errAssignRole: "Could not assign the role",
     errTestPrint: "Test print failed",
-    loading: "Loading\u2026"
+    loading: "Loading\u2026",
+    queueTitle: "Print queue",
+    queueRefresh: "Refresh",
+    queueRefreshing: "Refreshing\u2026",
+    queueAlertWaiting: "{waiting} print job(s) for {role} have been waiting {age}.",
+    queueNoDevice: "No device for this role is connected: install the ERPlora app on the device that is connected to the printer and open your business from there.",
+    queueWaitingJobs: "Waiting: {waiting}",
+    queueOldest: "oldest has waited {age}",
+    queueLiveHosts: "Printing from: {hosts}",
+    queueAllClear: "All clear: the queue is empty and {n} device(s) are connected.",
+    queueAllClearNoHost: "Nothing is waiting right now. No print device is connected: new jobs will stay in the queue until one connects.",
+    statusReady: "Ready",
+    statusStalled: "Waiting, no printer",
+    statusUnattended: "No printer connected",
+    jobPending: "Pending",
+    jobPrinting: "Printing",
+    jobDead: "Dead",
+    jobAttempts: "attempts: {n}",
+    jobLastError: "Last error: {error}",
+    jobAge: "waiting {age}",
+    errQueueLoad: "Could not read the print queue.",
+    docKitchenOrder: "Kitchen order",
+    docReceipt: "Receipt",
+    docInvoice: "Invoice",
+    docDeliveryNote: "Delivery note",
+    docBarcodeLabel: "Barcode label",
+    docCashSessionReport: "Cash session report",
+    docPrebill: "Pre-bill",
+    docGeneric: "Document",
+    unitS: "s",
+    unitMin: "min",
+    unitH: "h"
   }
 };
 
@@ -1375,6 +1437,19 @@ var DEFAULTS = {
   print_kitchen: 0
 };
 var ROLES = ["receipt", "kitchen", "bar", "label"];
+var HUB_SESSION_KEY = "erplora.hub_session";
+var QUEUE_REFRESH_MS = 3e4;
+var QUEUE_LIMIT = 100;
+function classifyCoverage(c4) {
+  if (c4.liveHosts > 0) return "ready";
+  return c4.waiting > 0 ? "stalled" : "unattended";
+}
+function formatWait(seconds) {
+  const s4 = Math.max(0, Math.floor(seconds));
+  if (s4 < 60) return { value: s4, unit: "ui.unitS" };
+  if (s4 < 3600) return { value: Math.floor(s4 / 60), unit: "ui.unitMin" };
+  return { value: Math.floor(s4 / 3600), unit: "ui.unitH" };
+}
 function erplora() {
   const c4 = globalThis.erplora;
   if (!c4) throw new Error("erplora SDK no inicializado por el shell");
@@ -1393,6 +1468,12 @@ var ErpPrintingSettings = class extends i3 {
     this.printers = [];
     this.devices = [];
     this.hardwareError = "";
+    this.coverage = [];
+    this.hosts = [];
+    this.queue = [];
+    this.queueLoading = false;
+    this.queueError = "";
+    this.queueLoaded = false;
     // Re-render al cambiar el idioma del shell (ADR-0055): el template se re-evalúa con el nuevo
     // `erplora.locale`.
     this.onLocaleChange = () => this.requestUpdate();
@@ -1412,6 +1493,23 @@ var ErpPrintingSettings = class extends i3 {
     .ok { color:#2b8a3e; }
     .muted { opacity:.65; font-size:.85rem; }
     .badge { font-size:.7rem; padding:.1rem .45rem; border-radius:999px; background:#0001; }
+    /* printing#28 — the queue. Cards, not a table: at 390 px a table is the failure mode of
+       sales#126, and this data is one-line-per-job anyway. The roles fold by themselves
+       (auto-fit + minmax capped at 230 px, narrower than any phone viewport) and every row wraps
+       and breaks long job ids instead of overflowing the outlet. */
+    .queue-alert { border:1px solid #e8590c66; border-left:4px solid #e8590c; background:#fff4e6; color:#a6410c; padding:.6rem .75rem; border-radius:.5rem; margin-bottom:.5rem; min-width:0; overflow-wrap:anywhere; }
+    .queue-roles { display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:.5rem; margin:.5rem 0 .75rem; }
+    .queue-role { border:1px solid #0001; border-radius:.5rem; padding:.6rem .75rem; min-width:0; }
+    .queue-role-status { display:inline-block; font-size:.7rem; padding:.1rem .45rem; border-radius:999px; margin-bottom:.35rem; }
+    .queue-role-status.ready { background:#d3f9d8; color:#2b8a3e; }
+    .queue-role-status.stalled { background:#ffe3e3; color:#c92a2a; }
+    .queue-role-status.unattended { background:#fff3bf; color:#a68100; }
+    .queue-role .hosts { font-size:.85rem; opacity:.75; }
+    .queue-job { display:flex; align-items:flex-start; gap:.6rem; padding:.6rem .75rem; border:1px solid #0001; border-radius:.5rem; margin-bottom:.5rem; flex-wrap:wrap; min-width:0; overflow-wrap:anywhere; }
+    .queue-job .id { font-family:ui-monospace, monospace; font-size:.8rem; opacity:.7; }
+    .queue-job .meta { font-size:.8rem; opacity:.75; white-space:nowrap; }
+    .queue-job .badge.st-dead { background:#ffe3e3; color:#c92a2a; }
+    .queue-job .badge.st-printing { background:#d0ebff; color:#1971c2; }
   `;
   }
   /** Hardware vía el cliente del Hub (nunca un cliente de periféricos propio). */
@@ -1419,8 +1517,72 @@ var ErpPrintingSettings = class extends i3 {
     return erplora().peripherals;
   }
   async firstUpdated() {
+    void this.loadQueue();
+    this.startQueueTimer();
     await this.loadSettings();
     await this.refreshHardware();
+  }
+  // ── Cola del hub (printing#28) ─────────────────────────────────────────────────────────────
+  /**
+   * Same-origin read of a core route, carrying the session the runtime expects. The ONE place the
+   * module touches shell state: `erplora.hub_session` is the same key `runtimeHeaders()` reads, and
+   * no SDK door exists for these routes (see the block comment above `HUB_SESSION_KEY`).
+   */
+  fetchQueueJson(path) {
+    const headers = {};
+    const session = this.hubSession();
+    if (session) headers["X-Hub-Session"] = session;
+    return fetch(path, { headers, credentials: "same-origin" }).then(async (res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    });
+  }
+  /** The hub session the shell keeps, or `null` where there is none to read (locked-down browser). */
+  hubSession() {
+    try {
+      return globalThis.localStorage?.getItem(HUB_SESSION_KEY) ?? null;
+    } catch {
+      return null;
+    }
+  }
+  /**
+   * One read = the registry with its coverage plus the three buckets the screen shows. `done` is
+   * deliberately NOT fetched: it is history, not state, and the hub lists in arrival order — with a
+   * lifetime of completed tickets the interesting rows would never make it into the page.
+   */
+  async loadQueue() {
+    this.queueLoading = true;
+    try {
+      const [hostsRes, pendingRes, printingRes, deadRes] = await Promise.all([
+        this.fetchQueueJson("/api/print/hosts"),
+        this.fetchQueueJson(`/api/print/jobs?status=pending&limit=${QUEUE_LIMIT}`),
+        this.fetchQueueJson(`/api/print/jobs?status=printing&limit=${QUEUE_LIMIT}`),
+        this.fetchQueueJson(`/api/print/jobs?status=dead&limit=${QUEUE_LIMIT}`)
+      ]);
+      const hostsBody = hostsRes;
+      const bucket = (r6) => r6.jobs ?? [];
+      const oldest = (a3, b3) => Date.parse(a3.createdAt) - Date.parse(b3.createdAt);
+      this.hosts = hostsBody.hosts ?? [];
+      this.coverage = hostsBody.coverage ?? [];
+      this.queue = [
+        ...bucket(pendingRes).sort(oldest),
+        ...bucket(printingRes).sort(oldest),
+        ...bucket(deadRes).sort(oldest)
+      ];
+      this.queueError = "";
+      this.queueLoaded = true;
+    } catch (e4) {
+      const detail = e4 instanceof Error && /^HTTP \d+$/.test(e4.message) ? ` (${e4.message})` : "";
+      this.queueError = `${erplora().t(CATALOG, "ui.errQueueLoad")}${detail}`;
+    } finally {
+      this.queueLoading = false;
+    }
+  }
+  /** Self-refresh, paused while the tab is hidden — a background tab polling every 30 s is noise. */
+  startQueueTimer() {
+    this.queueTimerId = window.setInterval(() => {
+      if (document.visibilityState === "visible") void this.loadQueue();
+    }, QUEUE_REFRESH_MS);
   }
   async loadSettings() {
     try {
@@ -1503,12 +1665,46 @@ var ErpPrintingSettings = class extends i3 {
     };
     return keys[role] ? erplora().t(CATALOG, keys[role]) : role;
   }
+  // Etiqueta i18n de un tipo de documento del vocabulario de la cola (`print_queue::DOCUMENT_TYPES`).
+  // Fuera del vocabulario (un hub más nuevo que este módulo) se muestra el enum crudo, no un fallo.
+  docLabel(documentType) {
+    const keys = {
+      kitchen_order: "ui.docKitchenOrder",
+      receipt: "ui.docReceipt",
+      invoice: "ui.docInvoice",
+      delivery_note: "ui.docDeliveryNote",
+      barcode_label: "ui.docBarcodeLabel",
+      cash_session_report: "ui.docCashSessionReport",
+      prebill: "ui.docPrebill",
+      generic: "ui.docGeneric"
+    };
+    return keys[documentType] ? erplora().t(CATALOG, keys[documentType]) : documentType;
+  }
+  /** `{value} {unit}` ya traducido: «29 min», «45 s», «1 h». */
+  waitText(seconds, t3) {
+    const w2 = formatWait(seconds);
+    return `${w2.value} ${t3(w2.unit)}`;
+  }
+  /** Badge y frase de estado de un rol — la misma clasificación que la pantalla del hub (hub#800). */
+  roleStatusKey(status) {
+    return { ready: "ui.statusReady", stalled: "ui.statusStalled", unattended: "ui.statusUnattended" }[status];
+  }
+  jobStatusKey(status) {
+    const keys = {
+      pending: "ui.jobPending",
+      printing: "ui.jobPrinting",
+      dead: "ui.jobDead"
+    };
+    return keys[status] ?? status;
+  }
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener("erplora:locale-changed", this.onLocaleChange);
   }
   disconnectedCallback() {
     window.removeEventListener("erplora:locale-changed", this.onLocaleChange);
+    window.clearInterval(this.queueTimerId);
+    this.queueTimerId = void 0;
     super.disconnectedCallback();
   }
   set(key, value) {
@@ -1521,6 +1717,56 @@ var ErpPrintingSettings = class extends i3 {
     return b2`
       <h2>${t3("ui.printersTitle")}</h2>
       <p class="muted">${t3("ui.printersIntro")}</p>
+
+      <section>
+        <div class="row">
+          <h3 style="margin:0">${t3("ui.queueTitle")}</h3>
+          <ion-button class="queue-refresh" size="small" fill="outline" ?disabled=${this.queueLoading}
+            @click=${() => void this.loadQueue()}>
+            ${this.queueLoading ? t3("ui.queueRefreshing") : t3("ui.queueRefresh")}
+          </ion-button>
+        </div>
+        ${this.queueError ? b2`<p class="err">${this.queueError}</p>` : A}
+        ${this.queueLoaded && !this.queueError ? this.coverage.filter((c4) => c4.undrained).map(
+      (c4) => b2`
+                  <div class="queue-alert">
+                    ${t3("ui.queueAlertWaiting", {
+        waiting: c4.waiting,
+        role: this.roleLabel(c4.role),
+        age: this.waitText(c4.waitingSeconds, t3)
+      })}
+                    ${t3("ui.queueNoDevice")}
+                  </div>
+                `
+    ) : A}
+        ${this.queueLoaded && !this.queueError && this.queue.length === 0 ? this.hosts.some((h3) => h3.live) ? b2`<p class="ok">${t3("ui.queueAllClear", { n: this.hosts.filter((h3) => h3.live).length })}</p>` : b2`<p class="muted">${t3("ui.queueAllClearNoHost")}</p>` : A}
+        <div class="queue-roles">
+          ${this.coverage.map((c4) => {
+      const status = classifyCoverage(c4);
+      const liveHosts = this.hosts.filter((h3) => h3.live && h3.role === c4.role).map((h3) => h3.label.trim() || h3.deviceId);
+      return b2`
+              <div class="queue-role">
+                <div><span class="queue-role-status ${status}">${t3(this.roleStatusKey(status))}</span></div>
+                <div><strong>${this.roleLabel(c4.role)}</strong></div>
+                ${c4.waiting > 0 ? b2`<div>${t3("ui.queueWaitingJobs", { waiting: c4.waiting })} · ${t3("ui.queueOldest", { age: this.waitText(c4.waitingSeconds, t3) })}</div>` : A}
+                ${liveHosts.length > 0 ? b2`<div class="hosts">${t3("ui.queueLiveHosts", { hosts: liveHosts.join(", ") })}</div>` : A}
+              </div>
+            `;
+    })}
+        </div>
+        ${this.queue.map(
+      (j) => b2`
+            <div class="queue-job">
+              <div class="grow">
+                <div>${this.docLabel(j.documentType)} <span class="badge st-${j.status}">${t3(this.jobStatusKey(j.status))}</span></div>
+                <div class="id">${j.jobId} · ${this.roleLabel(j.role)} · ${t3("ui.jobAge", { age: this.waitText((Date.now() - Date.parse(j.createdAt)) / 1e3, t3) })}</div>
+                ${j.lastError ? b2`<div class="err">${t3("ui.jobLastError", { error: j.lastError })}</div>` : A}
+              </div>
+              <div class="meta">${t3("ui.jobAttempts", { n: j.attempts })}</div>
+            </div>
+          `
+    )}
+      </section>
 
       <section>
         <h3>${t3("ui.ticketSettings")}</h3>
@@ -1616,7 +1862,26 @@ __decorateClass([
 __decorateClass([
   r5()
 ], ErpPrintingSettings.prototype, "hardwareError", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "coverage", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "hosts", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "queue", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "queueLoading", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "queueError", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "queueLoaded", 2);
 define("erp-printing-settings", ErpPrintingSettings);
 export {
-  ErpPrintingSettings
+  ErpPrintingSettings,
+  formatWait
 };
