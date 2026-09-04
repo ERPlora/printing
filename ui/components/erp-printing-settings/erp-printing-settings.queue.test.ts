@@ -117,6 +117,8 @@ interface QueueDouble {
   queueFails?: unknown;
   /** `hub.administer` — owner/admin only. The two gestures are not offered without it. */
   admin?: boolean;
+  /** The shell's active language. Defaults to `es`; the parity tests mount BOTH. */
+  locale?: 'es' | 'en';
   retry?: (jobId: string) => Promise<unknown>;
   discard?: (jobId: string, reason?: string) => Promise<unknown>;
 }
@@ -130,6 +132,7 @@ interface Spies {
 
 function stubErplora(opts: QueueDouble = {}): Spies {
   const coverage = opts.coverage ?? COVERAGE_STUCK;
+  const locale = opts.locale ?? 'es';
   const retry = vi.fn(opts.retry ?? (async (jobId: string) => ({ jobId, status: 'pending' })));
   const discard = vi.fn(
     opts.discard ??
@@ -164,16 +167,18 @@ function stubErplora(opts: QueueDouble = {}): Spies {
       discoverPrinters: async () => [],
       getDevices: async () => [],
     },
-    locale: 'es',
+    locale,
     // Interpolates `{name}` the way the real SDK `t()` does (module-sdk index.ts) — the alarm and
-    // the job rows only make sense with their facts substituted in.
+    // the job rows only make sense with their facts substituted in. And it resolves against the
+    // ACTIVE language, not always `es`: a double pinned to one catalog cannot tell a translated
+    // screen from one with the sentence hardcoded in the source language.
     t: (
       catalog: Record<string, { ui: Record<string, string> }>,
       key: string,
       params?: Record<string, unknown>,
     ) => {
       const [, k] = key.split('.');
-      let out = catalog.es?.ui?.[k] ?? key;
+      let out = catalog[locale]?.ui?.[k] ?? key;
       if (params)
         for (const [name, value] of Object.entries(params))
           out = out.replace(new RegExp(`\\{${name}\\}`, 'g'), String(value));
@@ -537,6 +542,28 @@ describe('every refusal is told by its code, never by the sentence it arrived wi
     expect(window.location.pathname + window.location.hash).toBe('/settings#permissions');
   });
 
+  it('reads the CODE and not the sentence, even when the two disagree', async () => {
+    // The fixtures above let `message` default to the code, so a screen keyed on the PROSE would
+    // pass every one of them. Here the two say different things on purpose (ADR-0055: the sentence
+    // is what the runtime happens to have written, in one language, and a screen never parses it).
+    // Keyed on the message, this would beg for a `printer` grant nobody ever denied.
+    stubErplora({
+      coverage: [],
+      jobs: { dead: JOBS_DEAD },
+      retry: async () => {
+        throw new FakeErploraError('not_found', 'capability_denied');
+      },
+    });
+    const el = await mount();
+    await click(el, action(el, 'label-shelf-3', 'retry'));
+    const notice = el.shadowRoot.querySelector('.job-notice');
+    expect(notice?.textContent ?? '', 'the refusal was resolved by its prose').toContain(esUi.errJobGone);
+    expect(
+      notice?.querySelector('.job-notice-permissions'),
+      'it asked for a grant that was never the refusal',
+    ).toBeNull();
+  });
+
   it('an unknown refusal still says something, and never a silent no-op', async () => {
     stubErplora({
       coverage: [],
@@ -635,6 +662,77 @@ describe('catalog parity for the queue strings (en source of truth, ADR-0055/019
       expect(esUi[k], `es ui.${k} does not name the state`).toMatch(/\{status\}/);
       expect(enUi[k], `en ui.${k} does not name the state`).toMatch(/\{status\}/);
     }
+  });
+});
+
+// ── …and the screen actually PAINTS them (printing#32 review) ─────────────────────────────────
+//
+// The parity block above proves the two CATALOGS agree. It cannot prove the screen reads them: a
+// sentence hardcoded in the template passes it untouched, because the file it checks is the JSON
+// and not the DOM. Nor is mounting in one language enough — an English literal in the source reads
+// exactly like the `en` catalog value, so `en` alone is blind to precisely the regression this
+// guards (the same hole ERPlora/hub#1521 found). Mounted in BOTH, each assertion pinned to the
+// active catalog and to the ABSENCE of the other language's string, a hardcoded literal has
+// nowhere to hide: it survives the language it was written in and dies in the other.
+
+describe.each([
+  ['es', esUi, enUi],
+  ['en', enUi, esUi],
+])('the queue gestures are painted FROM the catalog (%s)', (locale, ui, other) => {
+  const lang = locale as 'es' | 'en';
+
+  it('labels the two buttons with the active language, never a literal', async () => {
+    stubErplora({ locale: lang, coverage: [], jobs: { dead: JOBS_DEAD } });
+    const el = await mount();
+    const retry = action(el, 'label-shelf-3', 'retry');
+    const discard = action(el, 'label-shelf-3', 'discard');
+    expect(retry?.textContent?.trim(), `the retry button is not ui.jobRetry in ${locale}`).toBe(ui.jobRetry);
+    expect(discard?.textContent?.trim(), `the discard button is not ui.jobDiscard in ${locale}`).toBe(ui.jobDiscard);
+    expect(retry?.textContent?.trim()).not.toBe(other.jobRetry);
+    expect(discard?.textContent?.trim()).not.toBe(other.jobDiscard);
+  });
+
+  it('writes the retire confirmation in the active language', async () => {
+    stubErplora({ locale: lang, coverage: [], jobs: { dead: JOBS_DEAD } });
+    const el = await mount();
+    await click(el, action(el, 'label-shelf-3', 'discard'));
+    const box = el.shadowRoot.querySelector('.job-discard');
+    expect(box?.textContent ?? '', `the question is not ui.jobDiscardTitle in ${locale}`).toContain(ui.jobDiscardTitle);
+    expect(box?.textContent ?? '').not.toContain(other.jobDiscardTitle);
+    expect(el.shadowRoot.querySelector('.job-discard-confirm')?.textContent?.trim()).toBe(ui.jobDiscardConfirm);
+    expect(el.shadowRoot.querySelector('.job-discard-cancel')?.textContent?.trim()).toBe(ui.jobCancel);
+    const reason = el.shadowRoot.querySelector('.job-discard-reason');
+    expect(reason?.getAttribute('label'), `the reason field is not labelled in ${locale}`).toBe(ui.jobDiscardReason);
+  });
+
+  it('explains a missing grant in the SENTENCE, not only in the link next to it', async () => {
+    // Asserting on the notice as a whole would pass on the link alone — `errJobGoPermissions`
+    // already says «Permisos» — while the sentence stayed hardcoded. The sentence is pinned here.
+    stubErplora({
+      locale: lang,
+      coverage: [],
+      jobs: { dead: JOBS_DEAD },
+      retry: async () => {
+        throw new FakeErploraError('capability_denied');
+      },
+    });
+    const el = await mount();
+    await click(el, action(el, 'label-shelf-3', 'retry'));
+    const notice = el.shadowRoot.querySelector('.job-notice');
+    expect(notice?.textContent ?? '', `the grant notice is not ui.errJobCapability in ${locale}`).toContain(
+      ui.errJobCapability,
+    );
+    expect(notice?.textContent ?? '').not.toContain(other.errJobCapability);
+    expect(notice?.querySelector('.job-notice-permissions')?.textContent?.trim()).toBe(ui.errJobGoPermissions);
+  });
+
+  it('says what a gesture achieved in the active language', async () => {
+    stubErplora({ locale: lang, coverage: [], jobs: { dead: JOBS_DEAD } });
+    const el = await mount();
+    await click(el, action(el, 'label-shelf-3', 'retry'));
+    const notice = el.shadowRoot.querySelector('.job-notice')?.textContent ?? '';
+    expect(notice, `the outcome is not ui.jobRetried in ${locale}`).toContain(ui.jobRetried);
+    expect(notice).not.toContain(other.jobRetried);
   });
 });
 
