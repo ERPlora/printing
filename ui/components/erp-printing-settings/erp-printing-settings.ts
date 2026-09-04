@@ -15,9 +15,23 @@ const CATALOG: Record<string, unknown> = { es: esLocale, en: enLocale };
 // `{online:false}` y toda operación de periférico rechaza con `hardware_unavailable`. Por eso el
 // aviso de este panel manda a instalar LA APP, no a arrancar nada. ARQUITECTURA.md §2.7.
 
+/**
+ * The two gestures that get a stuck job out of the jam (hub#1108), as the SDK hands them over:
+ * `erplora.forModule('printing').printQueue`. NOT `erplora.print(req)` — that is the published call
+ * every module uses to ENQUEUE a document.
+ */
+interface PrintQueueApiLike {
+  retry(jobId: string): Promise<unknown>;
+  discard(jobId: string, reason?: string): Promise<unknown>;
+}
+
 interface ErploraClientLike {
   query<T = unknown>(name: string, params?: Record<string, unknown>): Promise<T>;
   command<T = unknown>(name: string, payload?: Record<string, unknown>): Promise<T>;
+  /** This client acting FOR this module — the only way to reach the print recovery gestures. */
+  forModule(moduleId: string): { printQueue: PrintQueueApiLike };
+  /** UI gating ONLY: the runtime re-checks every call and refuses on its own. */
+  hasPermission(perm: string): boolean;
   peripherals: BridgeTransport;
   /** i18n del módulo (ADR-0055): idioma activo + traducción del catálogo `ui`. */
   locale: string;
@@ -49,20 +63,32 @@ const DEFAULTS: PrintingSettings = {
 
 const ROLES = ['receipt', 'kitchen', 'bar', 'label'];
 
-// ── The hub's print queue, over the wire (printing#28, hub#341/#342/#987) ──────────────────────
+// ── The hub's print queue, through the DISPATCHER (printing#28/#30, hub#1107/#1108) ────────────
 //
-// `GET /api/print/hosts` and `GET /api/print/jobs` are core REST of the hub, and the module SDK has
-// no door for them: `ErploraClient` never exposes its transport, `coreRequest` is private by design
-// ("not reachable from module code", module-sdk), and the only core surfaces a module can reach
-// (`forModule(…).flows/.events`) are pinned to flows and gated by `manage_flows`. The route that
-// exists for a module is the document it lives in: the screen runs inside the shell's page, same
-// origin (in dev the Vite proxy carries `/api`), and the session the runtime wants travels in the
-// `X-Hub-Session` header — the same `localStorage` key the shell's own `runtimeHeaders()` reads
-// (`erplora.hub_session`). That coupling is named HERE and kept to one function; the day the shell
-// offers a proper door, `fetchQueueJson` is the single seam to swap.
+// This screen used to pull `GET /api/print/hosts` / `GET /api/print/jobs` with a raw `fetch`,
+// carrying the shell's session out of `localStorage` (`erplora.hub_session`) — because when
+// printing#28 shipped the SDK had no door for those routes. It worked only while the session stayed
+// in `localStorage`, and it broke the WC → SDK → dispatcher contract (ADR-0192): the day the shell
+// moves the session to an `httpOnly` cookie, the merchant loses sight of the queue exactly when the
+// paper stops coming out.
+//
+// hub#1107 landed the doors, so the read is a query like any other. The runtime serves both the
+// HTTP route and the core query from ONE definition (`print_hosts::coverage_view`,
+// `print_queue::status_view`), so the shapes below are unchanged — `undrained` and `waitingSeconds`
+// still arrive RESOLVED by the runtime and are never re-derived here.
+//
+// The gate is `hub.users.view`, which any local session carries (hub#987: whoever is standing next
+// to the printer). The two RECOVERY gestures are the opposite — admin + the `printer` capability —
+// and travel through {@link PrintQueueApiLike}.
 
-/** `X-Hub-Session`: what `auth::require_user_session` reads on every core route. */
-const HUB_SESSION_KEY = 'erplora.hub_session';
+/** The module this screen belongs to: what `forModule` names to reach the recovery gestures. */
+const MODULE_ID = 'printing';
+
+/** Administering the hub (`hub_users::ADMINISTER_PERMISSION`): who may move a job in the queue. */
+const ADMINISTER_PERMISSION = 'hub.administer';
+
+/** Where the owner grants a module's declared capabilities — `printer`, in our case. */
+const PERMISSIONS_ROUTE = '/settings#permissions';
 
 /** How often the screen re-reads the queue on its own: often enough to matter, rarely enough to idle. */
 const QUEUE_REFRESH_MS = 30_000;
@@ -70,13 +96,8 @@ const QUEUE_REFRESH_MS = 30_000;
 /** Page size per status bucket; the hub clamps to 500 and defaults to 100. */
 const QUEUE_LIMIT = 100;
 
-/** A registered print host, as `GET /api/print/hosts` returns it (camelCase over the wire). */
-interface HostWire {
-  deviceId: string;
-  role: string;
-  label: string;
-  live: boolean;
-}
+/** The buckets the screen paints, worst-last so `pending` is read first. `done` is history. */
+const QUEUE_STATUSES = ['pending', 'printing', 'dead'] as const;
 
 /** Per-role coverage as the runtime computes and RESOLVES it: `undrained` arrives decided. */
 interface CoverageWire {
@@ -87,7 +108,7 @@ interface CoverageWire {
   undrained: boolean;
 }
 
-/** A queued job as `GET /api/print/jobs` summarizes it — everything except the document. */
+/** A queued job as `hub.print.jobs` summarizes it — everything except the document. */
 interface QueueJobWire {
   jobId: string;
   role: string;
@@ -97,6 +118,35 @@ interface QueueJobWire {
   attempts: number;
   createdAt: string;
   lastError: string | null;
+}
+
+/** The job states each recovery gesture applies to, mirrored from `print_queue` (hub#1108). */
+const RETRYABLE_STATUS = 'dead';
+const DISCARDABLE_STATUSES = ['pending', 'dead'];
+
+/**
+ * What the screen owes the person after a gesture — the outcome, or the refusal BY ITS CODE.
+ *
+ * The code is the contract (ADR-0055); the sentence that arrived with it is prose the runtime
+ * writes in one language and is never what a screen reads.
+ */
+interface JobNotice {
+  jobId: string;
+  kind: 'retried' | 'discarded' | 'refused';
+  code?: string;
+}
+
+/** The stable refusal codes this screen knows how to explain (`crates/server/src/print.rs`). */
+const NOT_REQUEUEABLE = 'print.job_not_requeueable';
+const NOT_DISCARDABLE = 'print.job_not_discardable';
+const NOT_FOUND = 'not_found';
+const CAPABILITY_DENIED = 'capability_denied';
+const FORBIDDEN = 'forbidden';
+
+/** The `code` of an `ErploraError`, or `''` for anything that did not travel with one. */
+function codeOf(e: unknown): string {
+  const code = (e as { code?: unknown } | null)?.code;
+  return typeof code === 'string' ? code : '';
 }
 
 /** The three states of a role, worst first. Mirrors the hub's own coverage screen (`hub#800`). */
@@ -153,6 +203,13 @@ export class ErpPrintingSettings extends LitElement {
     .queue-job .meta { font-size:.8rem; opacity:.75; white-space:nowrap; }
     .queue-job .badge.st-dead { background:#ffe3e3; color:#c92a2a; }
     .queue-job .badge.st-printing { background:#d0ebff; color:#1971c2; }
+    /* printing#30 — the two recovery gestures. The row already wraps; the action group wraps too
+       and takes the full width so that at 390 px the buttons drop under the job instead of
+       squeezing the id off the card. The retire confirmation reuses the same box. */
+    .job-actions { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; width:100%; margin-top:.4rem; min-width:0; }
+    .job-actions.job-discard { border-top:1px dashed #0002; padding-top:.5rem; }
+    .job-actions .job-discard-reason { min-width:180px; }
+    .job-notice { margin:.25rem 0 .5rem; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; min-width:0; overflow-wrap:anywhere; }
   `;
 
   @state() private settings: PrintingSettings = { ...DEFAULTS };
@@ -167,14 +224,21 @@ export class ErpPrintingSettings extends LitElement {
   @state() private devices: BridgeDevice[] = [];
   @state() private hardwareError = '';
 
-  // printing#28: the hub's queue — coverage per role, the host registry, the stuck jobs.
+  // printing#28: the hub's queue — coverage per role and the stuck jobs.
   @state() private coverage: CoverageWire[] = [];
-  @state() private hosts: HostWire[] = [];
   @state() private queue: QueueJobWire[] = [];
   @state() private queueLoading = false;
   @state() private queueError = '';
   @state() private queueLoaded = false;
   private queueTimerId: number | undefined;
+
+  // printing#30 · hub#1108: getting ONE job out of the jam.
+  /** The job whose retire confirmation is open — `''` when none is. */
+  @state() private discardingId = '';
+  @state() private discardReason = '';
+  /** The job a gesture is in flight for, so its buttons cannot be tapped twice. */
+  @state() private jobBusyId = '';
+  @state() private jobNotice: JobNotice | null = null;
 
   /** Hardware vía el cliente del Hub (nunca un cliente de periféricos propio). */
   private get peripherals(): BridgeTransport {
@@ -191,65 +255,108 @@ export class ErpPrintingSettings extends LitElement {
   // ── Cola del hub (printing#28) ─────────────────────────────────────────────────────────────
 
   /**
-   * Same-origin read of a core route, carrying the session the runtime expects. The ONE place the
-   * module touches shell state: `erplora.hub_session` is the same key `runtimeHeaders()` reads, and
-   * no SDK door exists for these routes (see the block comment above `HUB_SESSION_KEY`).
-   */
-  private fetchQueueJson(path: string): Promise<unknown> {
-    const headers: Record<string, string> = {};
-    const session = this.hubSession();
-    if (session) headers['X-Hub-Session'] = session;
-    return fetch(path, { headers, credentials: 'same-origin' }).then(async (res) => {
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
-    });
-  }
-
-  /** The hub session the shell keeps, or `null` where there is none to read (locked-down browser). */
-  private hubSession(): string | null {
-    try {
-      return globalThis.localStorage?.getItem(HUB_SESSION_KEY) ?? null;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * One read = the registry with its coverage plus the three buckets the screen shows. `done` is
-   * deliberately NOT fetched: it is history, not state, and the hub lists in arrival order — with a
-   * lifetime of completed tickets the interesting rows would never make it into the page.
+   * One read = the per-role coverage plus the three buckets the screen shows, all of them core
+   * queries through the dispatcher (hub#1107). `done` is deliberately NOT asked for: it is history,
+   * not state, and the hub lists in arrival order — with a lifetime of completed tickets the
+   * interesting rows would never make it into the page.
    */
   private async loadQueue(): Promise<void> {
     this.queueLoading = true;
     try {
-      const [hostsRes, pendingRes, printingRes, deadRes] = await Promise.all([
-        this.fetchQueueJson('/api/print/hosts'),
-        this.fetchQueueJson(`/api/print/jobs?status=pending&limit=${QUEUE_LIMIT}`),
-        this.fetchQueueJson(`/api/print/jobs?status=printing&limit=${QUEUE_LIMIT}`),
-        this.fetchQueueJson(`/api/print/jobs?status=dead&limit=${QUEUE_LIMIT}`),
+      const [coverage, ...buckets] = await Promise.all([
+        // Both names are written as LITERALS on purpose: ADR-0127 extracts the module's
+        // interoperability contract from the call site, and a constant hides the dependency.
+        // `hub.print.coverage` = per-role coverage; `hub.print.jobs` = the queue as a STATUS
+        // view (the document itself never travels through this door).
+        erplora().query<CoverageWire[]>('hub.print.coverage'),
+        ...QUEUE_STATUSES.map((status) =>
+          erplora().query<QueueJobWire[]>('hub.print.jobs', { status, limit: QUEUE_LIMIT }),
+        ),
       ]);
-      const hostsBody = hostsRes as { hosts?: HostWire[]; coverage?: CoverageWire[] };
-      const bucket = (r: unknown): QueueJobWire[] => ((r as { jobs?: QueueJobWire[] }).jobs ?? []);
       const oldest = (a: QueueJobWire, b: QueueJobWire): number =>
         Date.parse(a.createdAt) - Date.parse(b.createdAt);
-      this.hosts = hostsBody.hosts ?? [];
-      this.coverage = hostsBody.coverage ?? [];
+      this.coverage = Array.isArray(coverage) ? coverage : [];
       // Worst first for the eye: what is waiting (oldest at top), what is out, what died.
-      this.queue = [
-        ...bucket(pendingRes).sort(oldest),
-        ...bucket(printingRes).sort(oldest),
-        ...bucket(deadRes).sort(oldest),
-      ];
+      this.queue = buckets.flatMap((rows) => (Array.isArray(rows) ? [...rows].sort(oldest) : []));
       this.queueError = '';
       this.queueLoaded = true;
     } catch (e) {
       // A refused read is a STATE, not an empty queue: painting "all clear" here would be the lie
-      // this screen exists to stop.
-      const detail = e instanceof Error && /^HTTP \d+$/.test(e.message) ? ` (${e.message})` : '';
-      this.queueError = `${erplora().t(CATALOG, 'ui.errQueueLoad')}${detail}`;
+      // this screen exists to stop. The CODE is appended (never the runtime's prose) so a support
+      // call has something stable to name.
+      const code = codeOf(e);
+      this.queueError = `${erplora().t(CATALOG, 'ui.errQueueLoad')}${code ? ` (${code})` : ''}`;
     } finally {
       this.queueLoading = false;
     }
+  }
+
+  // ── Getting ONE job out of the jam (printing#30 · hub#1108) ────────────────────────────────
+
+  /**
+   * Whether to OFFER the two gestures at all. UI only — the runtime re-checks the admin session and
+   * the `printer` capability on every call and refuses on its own.
+   *
+   * Not offered is not the same as `disabled`: an Ionic control that is disabled eats the tap and
+   * leaves the reason in a `title` nobody on a touch screen will ever see.
+   */
+  private get canManageQueue(): boolean {
+    return erplora().hasPermission(ADMINISTER_PERMISSION);
+  }
+
+  private get printQueueApi(): PrintQueueApiLike {
+    return erplora().forModule(MODULE_ID).printQueue;
+  }
+
+  /** Runs one recovery gesture and ALWAYS re-reads the queue, so what is painted next is the truth. */
+  private async runJobGesture(
+    jobId: string,
+    kind: 'retried' | 'discarded',
+    gesture: () => Promise<unknown>,
+  ): Promise<void> {
+    this.jobBusyId = jobId;
+    this.jobNotice = null;
+    try {
+      await gesture();
+      this.jobNotice = { jobId, kind };
+    } catch (e) {
+      this.jobNotice = { jobId, kind: 'refused', code: codeOf(e) };
+    } finally {
+      this.jobBusyId = '';
+      // Also on refusal, and that is the point: `job_not_requeueable` means the row on screen was
+      // stale, so the state the message names has to come from a FRESH read, never from that row.
+      await this.loadQueue();
+    }
+  }
+
+  private retryJob(jobId: string): Promise<void> {
+    return this.runJobGesture(jobId, 'retried', () => this.printQueueApi.retry(jobId));
+  }
+
+  private confirmDiscard(jobId: string): Promise<void> {
+    // An empty reason travels as NO reason at all: demanding an essay to close a row is how a
+    // recovery queue stops being drained.
+    const reason = this.discardReason.trim() || undefined;
+    this.discardingId = '';
+    this.discardReason = '';
+    return this.runJobGesture(jobId, 'discarded', () => this.printQueueApi.discard(jobId, reason));
+  }
+
+  private openDiscard(jobId: string): void {
+    this.discardingId = jobId;
+    this.discardReason = '';
+    this.jobNotice = null;
+  }
+
+  private cancelDiscard(): void {
+    this.discardingId = '';
+    this.discardReason = '';
+  }
+
+  /** Same in-shell navigation the other modules use: push the route and let the router pick it up. */
+  private go(path: string): void {
+    window.history.pushState({}, '', path);
+    window.dispatchEvent(new PopStateEvent('popstate'));
   }
 
   /** Self-refresh, paused while the tab is hidden — a background tab polling every 30 s is noise. */
@@ -393,6 +500,44 @@ export class ErpPrintingSettings extends LitElement {
     return keys[status] ?? status;
   }
 
+  /** The job status in the person's words, or the raw enum for a state this module has no name for. */
+  private jobStatusLabel(status: string): string {
+    const key = this.jobStatusKey(status);
+    return key === status ? status : erplora().t(CATALOG, key);
+  }
+
+  /**
+   * What to say after a gesture — resolved by CODE, never by the sentence the runtime sent
+   * (ADR-0055).
+   *
+   * The two `409`s carry the state the job is really in, and the SDK's `ErploraError` does not
+   * surface that field — so the state is read from the queue as it stands AFTER the re-read the
+   * gesture always does. That is the authoritative answer: the refusal happened precisely because
+   * the row on screen was stale. When the job is no longer in any bucket we have nothing to name and
+   * say so, rather than naming a state we would be guessing.
+   */
+  private noticeSpeech(notice: JobNotice): { key: string; params?: Record<string, unknown> } {
+    if (notice.kind === 'retried') return { key: 'ui.jobRetried' };
+    if (notice.kind === 'discarded') return { key: 'ui.jobDiscarded' };
+    const fresh = this.queue.find((j) => j.jobId === notice.jobId)?.status;
+    const named = (key: string, fallback: string): { key: string; params?: Record<string, unknown> } =>
+      fresh ? { key, params: { status: this.jobStatusLabel(fresh) } } : { key: fallback };
+    switch (notice.code) {
+      case NOT_REQUEUEABLE:
+        return named('ui.errJobNotRequeueable', 'ui.errJobNotRequeueableUnknown');
+      case NOT_DISCARDABLE:
+        return named('ui.errJobNotDiscardable', 'ui.errJobNotDiscardableUnknown');
+      case NOT_FOUND:
+        return { key: 'ui.errJobGone' };
+      case CAPABILITY_DENIED:
+        return { key: 'ui.errJobCapability' };
+      case FORBIDDEN:
+        return { key: 'ui.errJobForbidden' };
+      default:
+        return { key: 'ui.errJobAction' };
+    }
+  }
+
   // Re-render al cambiar el idioma del shell (ADR-0055): el template se re-evalúa con el nuevo
   // `erplora.locale`.
   private readonly onLocaleChange = (): void => this.requestUpdate();
@@ -412,6 +557,79 @@ export class ErpPrintingSettings extends LitElement {
     this.saved = false;
   }
 
+  /**
+   * How many devices are draining this hub right now, across every station.
+   *
+   * The coverage view carries a COUNT and not the hosts' labels, so this screen says how many are
+   * connected and never invents a name the dispatcher did not send. The registry with its labels
+   * only ever travelled over the retired HTTP route.
+   */
+  private get liveHostCount(): number {
+    return this.coverage.reduce((n, c) => n + c.liveHosts, 0);
+  }
+
+  /** The outcome of the last gesture, or the refusal explained by its code. */
+  private renderJobNotice(t: (k: string, p?: Record<string, unknown>) => string) {
+    const notice = this.jobNotice;
+    if (!notice) return nothing;
+    const { key, params } = this.noticeSpeech(notice);
+    const refused = notice.kind === 'refused';
+    return html`
+      <p class="job-notice ${refused ? 'err' : 'ok'}">
+        ${t(key, params)}
+        ${notice.code === CAPABILITY_DENIED
+          ? html`<ion-button class="job-notice-permissions" size="small" fill="outline"
+              @click=${() => this.go(PERMISSIONS_ROUTE)}>${t('ui.errJobGoPermissions')}</ion-button>`
+          : nothing}
+      </p>
+    `;
+  }
+
+  /**
+   * The two gestures, offered only where they can work.
+   *
+   * A `printing` job gets neither: its lease already covers a host that died, and binning a ticket a
+   * live host is rendering is the silent loss the queue exists to prevent. And nothing at all is
+   * offered without the admin session — NOT a disabled button, which on a touch screen swallows the
+   * tap and hides the reason in a `title`.
+   */
+  private renderJobActions(j: QueueJobWire, t: (k: string, p?: Record<string, unknown>) => string) {
+    if (!this.canManageQueue) return nothing;
+    const canRetry = j.status === RETRYABLE_STATUS;
+    const canDiscard = DISCARDABLE_STATUSES.includes(j.status);
+    if (!canRetry && !canDiscard) return nothing;
+    const busy = this.jobBusyId === j.jobId;
+    if (this.discardingId === j.jobId) {
+      return html`
+        <div class="job-actions job-discard">
+          <span class="grow">${t('ui.jobDiscardTitle')}</span>
+          <ion-input class="job-discard-reason grow" mode="md" fill="outline" label-placement="floating"
+            label=${t('ui.jobDiscardReason')} .value=${this.discardReason}
+            @ionInput=${(e: Event) => {
+              const detail = (e as CustomEvent<{ value?: string | null }>).detail;
+              this.discardReason = detail?.value ?? (e.target as HTMLInputElement).value ?? '';
+            }}></ion-input>
+          <ion-button class="job-discard-confirm" size="small" color="danger" ?disabled=${busy}
+            @click=${() => void this.confirmDiscard(j.jobId)}>${t('ui.jobDiscardConfirm')}</ion-button>
+          <ion-button class="job-discard-cancel" size="small" fill="outline"
+            @click=${() => this.cancelDiscard()}>${t('ui.jobCancel')}</ion-button>
+        </div>
+      `;
+    }
+    return html`
+      <div class="job-actions">
+        ${canRetry
+          ? html`<ion-button class="job-action-retry" size="small" fill="outline" ?disabled=${busy}
+              @click=${() => void this.retryJob(j.jobId)}>${t('ui.jobRetry')}</ion-button>`
+          : nothing}
+        ${canDiscard
+          ? html`<ion-button class="job-action-discard" size="small" fill="outline" ?disabled=${busy}
+              @click=${() => this.openDiscard(j.jobId)}>${t('ui.jobDiscard')}</ion-button>`
+          : nothing}
+      </div>
+    `;
+  }
+
   render() {
     const s = this.settings;
     const t = (k: string, params?: Record<string, unknown>): string => erplora().t(CATALOG, k, params);
@@ -428,6 +646,7 @@ export class ErpPrintingSettings extends LitElement {
           </ion-button>
         </div>
         ${this.queueError ? html`<p class="err">${this.queueError}</p>` : nothing}
+        ${this.renderJobNotice(t)}
         ${this.queueLoaded && !this.queueError
           ? this.coverage
               .filter((c) => c.undrained)
@@ -445,16 +664,13 @@ export class ErpPrintingSettings extends LitElement {
               )
           : nothing}
         ${this.queueLoaded && !this.queueError && this.queue.length === 0
-          ? this.hosts.some((h) => h.live)
-            ? html`<p class="ok">${t('ui.queueAllClear', { n: this.hosts.filter((h) => h.live).length })}</p>`
+          ? this.liveHostCount > 0
+            ? html`<p class="ok">${t('ui.queueAllClear', { n: this.liveHostCount })}</p>`
             : html`<p class="muted">${t('ui.queueAllClearNoHost')}</p>`
           : nothing}
         <div class="queue-roles">
           ${this.coverage.map((c) => {
             const status = classifyCoverage(c);
-            const liveHosts = this.hosts
-              .filter((h) => h.live && h.role === c.role)
-              .map((h) => h.label.trim() || h.deviceId);
             return html`
               <div class="queue-role">
                 <div><span class="queue-role-status ${status}">${t(this.roleStatusKey(status))}</span></div>
@@ -462,8 +678,8 @@ export class ErpPrintingSettings extends LitElement {
                 ${c.waiting > 0
                   ? html`<div>${t('ui.queueWaitingJobs', { waiting: c.waiting })} · ${t('ui.queueOldest', { age: this.waitText(c.waitingSeconds, t) })}</div>`
                   : nothing}
-                ${liveHosts.length > 0
-                  ? html`<div class="hosts">${t('ui.queueLiveHosts', { hosts: liveHosts.join(', ') })}</div>`
+                ${c.liveHosts > 0
+                  ? html`<div class="hosts">${t('ui.queueLiveHosts', { n: c.liveHosts })}</div>`
                   : nothing}
               </div>
             `;
@@ -478,6 +694,7 @@ export class ErpPrintingSettings extends LitElement {
                 ${j.lastError ? html`<div class="err">${t('ui.jobLastError', { error: j.lastError })}</div>` : nothing}
               </div>
               <div class="meta">${t('ui.jobAttempts', { n: j.attempts })}</div>
+              ${this.renderJobActions(j, t)}
             </div>
           `,
         )}
