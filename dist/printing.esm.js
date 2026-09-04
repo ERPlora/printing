@@ -1320,7 +1320,7 @@ var es_default = {
     queueNoDevice: "Ning\xFAn dispositivo de este rol est\xE1 conectado: instala la app de ERPlora en el dispositivo conectado a la impresora y abre tu negocio desde ah\xED.",
     queueWaitingJobs: "En cola: {waiting}",
     queueOldest: "el m\xE1s antiguo lleva {age}",
-    queueLiveHosts: "Imprime desde: {hosts}",
+    queueLiveHosts: "Imprime desde {n} dispositivo(s).",
     queueAllClear: "Todo al d\xEDa: la cola est\xE1 vac\xEDa y hay {n} dispositivo(s) conectado(s).",
     queueAllClearNoHost: "Ahora mismo no hay nada en cola. No hay ning\xFAn dispositivo de impresi\xF3n conectado: los trabajos nuevos quedar\xE1n en la cola hasta que uno se conecte.",
     statusReady: "Listo",
@@ -1343,7 +1343,24 @@ var es_default = {
     docGeneric: "Documento",
     unitS: "s",
     unitMin: "min",
-    unitH: "h"
+    unitH: "h",
+    jobRetry: "Reintentar",
+    jobDiscard: "Descartar",
+    jobDiscardTitle: "\xBFDescartar este trabajo? No se imprimir\xE1, y queda registrado.",
+    jobDiscardReason: "Motivo (opcional)",
+    jobDiscardConfirm: "S\xED, descartar",
+    jobCancel: "Cancelar",
+    jobRetried: "Vuelve a la cola: lo imprimir\xE1 el pr\xF3ximo dispositivo que se conecte.",
+    jobDiscarded: "Trabajo descartado. No se imprimir\xE1 y ya no bloquea su estaci\xF3n.",
+    errJobNotRequeueable: "Solo se puede reintentar un trabajo que se ha dado por vencido; este est\xE1 {status}.",
+    errJobNotRequeueableUnknown: "Solo se puede reintentar un trabajo que se ha dado por vencido. La lista se acaba de actualizar.",
+    errJobNotDiscardable: "No se puede descartar un trabajo que una impresora est\xE1 sacando; este est\xE1 {status}.",
+    errJobNotDiscardableUnknown: "Este trabajo ya no se puede descartar. La lista se acaba de actualizar.",
+    errJobGone: "Ese trabajo ya no est\xE1 en la cola. La lista se acaba de actualizar.",
+    errJobCapability: "El permiso de impresi\xF3n no est\xE1 concedido, as\xED que todav\xEDa no se pueden mover trabajos.",
+    errJobGoPermissions: "Ir a Permisos",
+    errJobForbidden: "Solo quien administra el negocio puede mover trabajos de la cola de impresi\xF3n.",
+    errJobAction: "No se pudo mover el trabajo. Int\xE9ntalo de nuevo en un momento."
   }
 };
 
@@ -1399,7 +1416,7 @@ var en_default = {
     queueNoDevice: "No device for this role is connected: install the ERPlora app on the device that is connected to the printer and open your business from there.",
     queueWaitingJobs: "Waiting: {waiting}",
     queueOldest: "oldest has waited {age}",
-    queueLiveHosts: "Printing from: {hosts}",
+    queueLiveHosts: "Printing from {n} device(s).",
     queueAllClear: "All clear: the queue is empty and {n} device(s) are connected.",
     queueAllClearNoHost: "Nothing is waiting right now. No print device is connected: new jobs will stay in the queue until one connects.",
     statusReady: "Ready",
@@ -1422,7 +1439,24 @@ var en_default = {
     docGeneric: "Document",
     unitS: "s",
     unitMin: "min",
-    unitH: "h"
+    unitH: "h",
+    jobRetry: "Try again",
+    jobDiscard: "Discard",
+    jobDiscardTitle: "Discard this job? It will not be printed, and the record stays.",
+    jobDiscardReason: "Reason (optional)",
+    jobDiscardConfirm: "Yes, discard",
+    jobCancel: "Cancel",
+    jobRetried: "Sent back to the queue: the next device to connect will print it.",
+    jobDiscarded: "Job discarded. It will not be printed and it no longer blocks its station.",
+    errJobNotRequeueable: "Only a job that has given up can be sent back; this one is {status}.",
+    errJobNotRequeueableUnknown: "Only a job that has given up can be sent back. The list has just been refreshed.",
+    errJobNotDiscardable: "A job a printer is working on cannot be discarded; this one is {status}.",
+    errJobNotDiscardableUnknown: "This job cannot be discarded any more. The list has just been refreshed.",
+    errJobGone: "That job is no longer in this queue. The list has just been refreshed.",
+    errJobCapability: "Printing permission has not been granted, so jobs cannot be moved yet.",
+    errJobGoPermissions: "Go to Permissions",
+    errJobForbidden: "Only whoever manages the business can move jobs in the print queue.",
+    errJobAction: "The job could not be moved. Try again in a moment."
   }
 };
 
@@ -1437,9 +1471,23 @@ var DEFAULTS = {
   print_kitchen: 0
 };
 var ROLES = ["receipt", "kitchen", "bar", "label"];
-var HUB_SESSION_KEY = "erplora.hub_session";
+var MODULE_ID = "printing";
+var ADMINISTER_PERMISSION = "hub.administer";
+var PERMISSIONS_ROUTE = "/settings#permissions";
 var QUEUE_REFRESH_MS = 3e4;
 var QUEUE_LIMIT = 100;
+var QUEUE_STATUSES = ["pending", "printing", "dead"];
+var RETRYABLE_STATUS = "dead";
+var DISCARDABLE_STATUSES = ["pending", "dead"];
+var NOT_REQUEUEABLE = "print.job_not_requeueable";
+var NOT_DISCARDABLE = "print.job_not_discardable";
+var NOT_FOUND = "not_found";
+var CAPABILITY_DENIED = "capability_denied";
+var FORBIDDEN = "forbidden";
+function codeOf(e4) {
+  const code = e4?.code;
+  return typeof code === "string" ? code : "";
+}
 function classifyCoverage(c4) {
   if (c4.liveHosts > 0) return "ready";
   return c4.waiting > 0 ? "stalled" : "unattended";
@@ -1469,11 +1517,14 @@ var ErpPrintingSettings = class extends i3 {
     this.devices = [];
     this.hardwareError = "";
     this.coverage = [];
-    this.hosts = [];
     this.queue = [];
     this.queueLoading = false;
     this.queueError = "";
     this.queueLoaded = false;
+    this.discardingId = "";
+    this.discardReason = "";
+    this.jobBusyId = "";
+    this.jobNotice = null;
     // Re-render al cambiar el idioma del shell (ADR-0055): el template se re-evalúa con el nuevo
     // `erplora.locale`.
     this.onLocaleChange = () => this.requestUpdate();
@@ -1510,6 +1561,13 @@ var ErpPrintingSettings = class extends i3 {
     .queue-job .meta { font-size:.8rem; opacity:.75; white-space:nowrap; }
     .queue-job .badge.st-dead { background:#ffe3e3; color:#c92a2a; }
     .queue-job .badge.st-printing { background:#d0ebff; color:#1971c2; }
+    /* printing#30 — the two recovery gestures. The row already wraps; the action group wraps too
+       and takes the full width so that at 390 px the buttons drop under the job instead of
+       squeezing the id off the card. The retire confirmation reuses the same box. */
+    .job-actions { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; width:100%; margin-top:.4rem; min-width:0; }
+    .job-actions.job-discard { border-top:1px dashed #0002; padding-top:.5rem; }
+    .job-actions .job-discard-reason { min-width:180px; }
+    .job-notice { margin:.25rem 0 .5rem; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; min-width:0; overflow-wrap:anywhere; }
   `;
   }
   /** Hardware vía el cliente del Hub (nunca un cliente de periféricos propio). */
@@ -1524,59 +1582,86 @@ var ErpPrintingSettings = class extends i3 {
   }
   // ── Cola del hub (printing#28) ─────────────────────────────────────────────────────────────
   /**
-   * Same-origin read of a core route, carrying the session the runtime expects. The ONE place the
-   * module touches shell state: `erplora.hub_session` is the same key `runtimeHeaders()` reads, and
-   * no SDK door exists for these routes (see the block comment above `HUB_SESSION_KEY`).
-   */
-  fetchQueueJson(path) {
-    const headers = {};
-    const session = this.hubSession();
-    if (session) headers["X-Hub-Session"] = session;
-    return fetch(path, { headers, credentials: "same-origin" }).then(async (res) => {
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
-    });
-  }
-  /** The hub session the shell keeps, or `null` where there is none to read (locked-down browser). */
-  hubSession() {
-    try {
-      return globalThis.localStorage?.getItem(HUB_SESSION_KEY) ?? null;
-    } catch {
-      return null;
-    }
-  }
-  /**
-   * One read = the registry with its coverage plus the three buckets the screen shows. `done` is
-   * deliberately NOT fetched: it is history, not state, and the hub lists in arrival order — with a
-   * lifetime of completed tickets the interesting rows would never make it into the page.
+   * One read = the per-role coverage plus the three buckets the screen shows, all of them core
+   * queries through the dispatcher (hub#1107). `done` is deliberately NOT asked for: it is history,
+   * not state, and the hub lists in arrival order — with a lifetime of completed tickets the
+   * interesting rows would never make it into the page.
    */
   async loadQueue() {
     this.queueLoading = true;
     try {
-      const [hostsRes, pendingRes, printingRes, deadRes] = await Promise.all([
-        this.fetchQueueJson("/api/print/hosts"),
-        this.fetchQueueJson(`/api/print/jobs?status=pending&limit=${QUEUE_LIMIT}`),
-        this.fetchQueueJson(`/api/print/jobs?status=printing&limit=${QUEUE_LIMIT}`),
-        this.fetchQueueJson(`/api/print/jobs?status=dead&limit=${QUEUE_LIMIT}`)
+      const [coverage, ...buckets] = await Promise.all([
+        // Both names are written as LITERALS on purpose: ADR-0127 extracts the module's
+        // interoperability contract from the call site, and a constant hides the dependency.
+        // `hub.print.coverage` = per-role coverage; `hub.print.jobs` = the queue as a STATUS
+        // view (the document itself never travels through this door).
+        erplora().query("hub.print.coverage"),
+        ...QUEUE_STATUSES.map(
+          (status) => erplora().query("hub.print.jobs", { status, limit: QUEUE_LIMIT })
+        )
       ]);
-      const hostsBody = hostsRes;
-      const bucket = (r6) => r6.jobs ?? [];
       const oldest = (a3, b3) => Date.parse(a3.createdAt) - Date.parse(b3.createdAt);
-      this.hosts = hostsBody.hosts ?? [];
-      this.coverage = hostsBody.coverage ?? [];
-      this.queue = [
-        ...bucket(pendingRes).sort(oldest),
-        ...bucket(printingRes).sort(oldest),
-        ...bucket(deadRes).sort(oldest)
-      ];
+      this.coverage = Array.isArray(coverage) ? coverage : [];
+      this.queue = buckets.flatMap((rows) => Array.isArray(rows) ? [...rows].sort(oldest) : []);
       this.queueError = "";
       this.queueLoaded = true;
     } catch (e4) {
-      const detail = e4 instanceof Error && /^HTTP \d+$/.test(e4.message) ? ` (${e4.message})` : "";
-      this.queueError = `${erplora().t(CATALOG, "ui.errQueueLoad")}${detail}`;
+      const code = codeOf(e4);
+      this.queueError = `${erplora().t(CATALOG, "ui.errQueueLoad")}${code ? ` (${code})` : ""}`;
     } finally {
       this.queueLoading = false;
     }
+  }
+  // ── Getting ONE job out of the jam (printing#30 · hub#1108) ────────────────────────────────
+  /**
+   * Whether to OFFER the two gestures at all. UI only — the runtime re-checks the admin session and
+   * the `printer` capability on every call and refuses on its own.
+   *
+   * Not offered is not the same as `disabled`: an Ionic control that is disabled eats the tap and
+   * leaves the reason in a `title` nobody on a touch screen will ever see.
+   */
+  get canManageQueue() {
+    return erplora().hasPermission(ADMINISTER_PERMISSION);
+  }
+  get printQueueApi() {
+    return erplora().forModule(MODULE_ID).printQueue;
+  }
+  /** Runs one recovery gesture and ALWAYS re-reads the queue, so what is painted next is the truth. */
+  async runJobGesture(jobId, kind, gesture) {
+    this.jobBusyId = jobId;
+    this.jobNotice = null;
+    try {
+      await gesture();
+      this.jobNotice = { jobId, kind };
+    } catch (e4) {
+      this.jobNotice = { jobId, kind: "refused", code: codeOf(e4) };
+    } finally {
+      this.jobBusyId = "";
+      await this.loadQueue();
+    }
+  }
+  retryJob(jobId) {
+    return this.runJobGesture(jobId, "retried", () => this.printQueueApi.retry(jobId));
+  }
+  confirmDiscard(jobId) {
+    const reason = this.discardReason.trim() || void 0;
+    this.discardingId = "";
+    this.discardReason = "";
+    return this.runJobGesture(jobId, "discarded", () => this.printQueueApi.discard(jobId, reason));
+  }
+  openDiscard(jobId) {
+    this.discardingId = jobId;
+    this.discardReason = "";
+    this.jobNotice = null;
+  }
+  cancelDiscard() {
+    this.discardingId = "";
+    this.discardReason = "";
+  }
+  /** Same in-shell navigation the other modules use: push the route and let the router pick it up. */
+  go(path) {
+    window.history.pushState({}, "", path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
   }
   /** Self-refresh, paused while the tab is hidden — a background tab polling every 30 s is noise. */
   startQueueTimer() {
@@ -1697,6 +1782,41 @@ var ErpPrintingSettings = class extends i3 {
     };
     return keys[status] ?? status;
   }
+  /** The job status in the person's words, or the raw enum for a state this module has no name for. */
+  jobStatusLabel(status) {
+    const key = this.jobStatusKey(status);
+    return key === status ? status : erplora().t(CATALOG, key);
+  }
+  /**
+   * What to say after a gesture — resolved by CODE, never by the sentence the runtime sent
+   * (ADR-0055).
+   *
+   * The two `409`s carry the state the job is really in, and the SDK's `ErploraError` does not
+   * surface that field — so the state is read from the queue as it stands AFTER the re-read the
+   * gesture always does. That is the authoritative answer: the refusal happened precisely because
+   * the row on screen was stale. When the job is no longer in any bucket we have nothing to name and
+   * say so, rather than naming a state we would be guessing.
+   */
+  noticeSpeech(notice) {
+    if (notice.kind === "retried") return { key: "ui.jobRetried" };
+    if (notice.kind === "discarded") return { key: "ui.jobDiscarded" };
+    const fresh = this.queue.find((j) => j.jobId === notice.jobId)?.status;
+    const named = (key, fallback) => fresh ? { key, params: { status: this.jobStatusLabel(fresh) } } : { key: fallback };
+    switch (notice.code) {
+      case NOT_REQUEUEABLE:
+        return named("ui.errJobNotRequeueable", "ui.errJobNotRequeueableUnknown");
+      case NOT_DISCARDABLE:
+        return named("ui.errJobNotDiscardable", "ui.errJobNotDiscardableUnknown");
+      case NOT_FOUND:
+        return { key: "ui.errJobGone" };
+      case CAPABILITY_DENIED:
+        return { key: "ui.errJobCapability" };
+      case FORBIDDEN:
+        return { key: "ui.errJobForbidden" };
+      default:
+        return { key: "ui.errJobAction" };
+    }
+  }
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener("erplora:locale-changed", this.onLocaleChange);
@@ -1710,6 +1830,70 @@ var ErpPrintingSettings = class extends i3 {
   set(key, value) {
     this.settings = { ...this.settings, [key]: value };
     this.saved = false;
+  }
+  /**
+   * How many devices are draining this hub right now, across every station.
+   *
+   * The coverage view carries a COUNT and not the hosts' labels, so this screen says how many are
+   * connected and never invents a name the dispatcher did not send. The registry with its labels
+   * only ever travelled over the retired HTTP route.
+   */
+  get liveHostCount() {
+    return this.coverage.reduce((n5, c4) => n5 + c4.liveHosts, 0);
+  }
+  /** The outcome of the last gesture, or the refusal explained by its code. */
+  renderJobNotice(t3) {
+    const notice = this.jobNotice;
+    if (!notice) return A;
+    const { key, params } = this.noticeSpeech(notice);
+    const refused = notice.kind === "refused";
+    return b2`
+      <p class="job-notice ${refused ? "err" : "ok"}">
+        ${t3(key, params)}
+        ${notice.code === CAPABILITY_DENIED ? b2`<ion-button class="job-notice-permissions" size="small" fill="outline"
+              @click=${() => this.go(PERMISSIONS_ROUTE)}>${t3("ui.errJobGoPermissions")}</ion-button>` : A}
+      </p>
+    `;
+  }
+  /**
+   * The two gestures, offered only where they can work.
+   *
+   * A `printing` job gets neither: its lease already covers a host that died, and binning a ticket a
+   * live host is rendering is the silent loss the queue exists to prevent. And nothing at all is
+   * offered without the admin session — NOT a disabled button, which on a touch screen swallows the
+   * tap and hides the reason in a `title`.
+   */
+  renderJobActions(j, t3) {
+    if (!this.canManageQueue) return A;
+    const canRetry = j.status === RETRYABLE_STATUS;
+    const canDiscard = DISCARDABLE_STATUSES.includes(j.status);
+    if (!canRetry && !canDiscard) return A;
+    const busy = this.jobBusyId === j.jobId;
+    if (this.discardingId === j.jobId) {
+      return b2`
+        <div class="job-actions job-discard">
+          <span class="grow">${t3("ui.jobDiscardTitle")}</span>
+          <ion-input class="job-discard-reason grow" mode="md" fill="outline" label-placement="floating"
+            label=${t3("ui.jobDiscardReason")} .value=${this.discardReason}
+            @ionInput=${(e4) => {
+        const detail = e4.detail;
+        this.discardReason = detail?.value ?? e4.target.value ?? "";
+      }}></ion-input>
+          <ion-button class="job-discard-confirm" size="small" color="danger" ?disabled=${busy}
+            @click=${() => void this.confirmDiscard(j.jobId)}>${t3("ui.jobDiscardConfirm")}</ion-button>
+          <ion-button class="job-discard-cancel" size="small" fill="outline"
+            @click=${() => this.cancelDiscard()}>${t3("ui.jobCancel")}</ion-button>
+        </div>
+      `;
+    }
+    return b2`
+      <div class="job-actions">
+        ${canRetry ? b2`<ion-button class="job-action-retry" size="small" fill="outline" ?disabled=${busy}
+              @click=${() => void this.retryJob(j.jobId)}>${t3("ui.jobRetry")}</ion-button>` : A}
+        ${canDiscard ? b2`<ion-button class="job-action-discard" size="small" fill="outline" ?disabled=${busy}
+              @click=${() => this.openDiscard(j.jobId)}>${t3("ui.jobDiscard")}</ion-button>` : A}
+      </div>
+    `;
   }
   render() {
     const s4 = this.settings;
@@ -1727,6 +1911,7 @@ var ErpPrintingSettings = class extends i3 {
           </ion-button>
         </div>
         ${this.queueError ? b2`<p class="err">${this.queueError}</p>` : A}
+        ${this.renderJobNotice(t3)}
         ${this.queueLoaded && !this.queueError ? this.coverage.filter((c4) => c4.undrained).map(
       (c4) => b2`
                   <div class="queue-alert">
@@ -1739,17 +1924,16 @@ var ErpPrintingSettings = class extends i3 {
                   </div>
                 `
     ) : A}
-        ${this.queueLoaded && !this.queueError && this.queue.length === 0 ? this.hosts.some((h3) => h3.live) ? b2`<p class="ok">${t3("ui.queueAllClear", { n: this.hosts.filter((h3) => h3.live).length })}</p>` : b2`<p class="muted">${t3("ui.queueAllClearNoHost")}</p>` : A}
+        ${this.queueLoaded && !this.queueError && this.queue.length === 0 ? this.liveHostCount > 0 ? b2`<p class="ok">${t3("ui.queueAllClear", { n: this.liveHostCount })}</p>` : b2`<p class="muted">${t3("ui.queueAllClearNoHost")}</p>` : A}
         <div class="queue-roles">
           ${this.coverage.map((c4) => {
       const status = classifyCoverage(c4);
-      const liveHosts = this.hosts.filter((h3) => h3.live && h3.role === c4.role).map((h3) => h3.label.trim() || h3.deviceId);
       return b2`
               <div class="queue-role">
                 <div><span class="queue-role-status ${status}">${t3(this.roleStatusKey(status))}</span></div>
                 <div><strong>${this.roleLabel(c4.role)}</strong></div>
                 ${c4.waiting > 0 ? b2`<div>${t3("ui.queueWaitingJobs", { waiting: c4.waiting })} · ${t3("ui.queueOldest", { age: this.waitText(c4.waitingSeconds, t3) })}</div>` : A}
-                ${liveHosts.length > 0 ? b2`<div class="hosts">${t3("ui.queueLiveHosts", { hosts: liveHosts.join(", ") })}</div>` : A}
+                ${c4.liveHosts > 0 ? b2`<div class="hosts">${t3("ui.queueLiveHosts", { n: c4.liveHosts })}</div>` : A}
               </div>
             `;
     })}
@@ -1763,6 +1947,7 @@ var ErpPrintingSettings = class extends i3 {
                 ${j.lastError ? b2`<div class="err">${t3("ui.jobLastError", { error: j.lastError })}</div>` : A}
               </div>
               <div class="meta">${t3("ui.jobAttempts", { n: j.attempts })}</div>
+              ${this.renderJobActions(j, t3)}
             </div>
           `
     )}
@@ -1867,9 +2052,6 @@ __decorateClass([
 ], ErpPrintingSettings.prototype, "coverage", 2);
 __decorateClass([
   r5()
-], ErpPrintingSettings.prototype, "hosts", 2);
-__decorateClass([
-  r5()
 ], ErpPrintingSettings.prototype, "queue", 2);
 __decorateClass([
   r5()
@@ -1880,6 +2062,18 @@ __decorateClass([
 __decorateClass([
   r5()
 ], ErpPrintingSettings.prototype, "queueLoaded", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "discardingId", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "discardReason", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "jobBusyId", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "jobNotice", 2);
 define("erp-printing-settings", ErpPrintingSettings);
 export {
   ErpPrintingSettings,

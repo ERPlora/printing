@@ -3,6 +3,8 @@
   "module": "printing",
   "consumes": {
     "queries": [
+      "hub.print.coverage",
+      "hub.print.jobs",
       "printing.settings.get"
     ],
     "optional_queries": [],

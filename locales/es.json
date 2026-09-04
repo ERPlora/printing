@@ -50,7 +50,7 @@
     "queueNoDevice": "Ningún dispositivo de este rol está conectado: instala la app de ERPlora en el dispositivo conectado a la impresora y abre tu negocio desde ahí.",
     "queueWaitingJobs": "En cola: {waiting}",
     "queueOldest": "el más antiguo lleva {age}",
-    "queueLiveHosts": "Imprime desde: {hosts}",
+    "queueLiveHosts": "Imprime desde {n} dispositivo(s).",
     "queueAllClear": "Todo al día: la cola está vacía y hay {n} dispositivo(s) conectado(s).",
     "queueAllClearNoHost": "Ahora mismo no hay nada en cola. No hay ningún dispositivo de impresión conectado: los trabajos nuevos quedarán en la cola hasta que uno se conecte.",
     "statusReady": "Listo",
@@ -73,6 +73,23 @@
     "docGeneric": "Documento",
     "unitS": "s",
     "unitMin": "min",
-    "unitH": "h"
+    "unitH": "h",
+    "jobRetry": "Reintentar",
+    "jobDiscard": "Descartar",
+    "jobDiscardTitle": "¿Descartar este trabajo? No se imprimirá, y queda registrado.",
+    "jobDiscardReason": "Motivo (opcional)",
+    "jobDiscardConfirm": "Sí, descartar",
+    "jobCancel": "Cancelar",
+    "jobRetried": "Vuelve a la cola: lo imprimirá el próximo dispositivo que se conecte.",
+    "jobDiscarded": "Trabajo descartado. No se imprimirá y ya no bloquea su estación.",
+    "errJobNotRequeueable": "Solo se puede reintentar un trabajo que se ha dado por vencido; este está {status}.",
+    "errJobNotRequeueableUnknown": "Solo se puede reintentar un trabajo que se ha dado por vencido. La lista se acaba de actualizar.",
+    "errJobNotDiscardable": "No se puede descartar un trabajo que una impresora está sacando; este está {status}.",
+    "errJobNotDiscardableUnknown": "Este trabajo ya no se puede descartar. La lista se acaba de actualizar.",
+    "errJobGone": "Ese trabajo ya no está en la cola. La lista se acaba de actualizar.",
+    "errJobCapability": "El permiso de impresión no está concedido, así que todavía no se pueden mover trabajos.",
+    "errJobGoPermissions": "Ir a Permisos",
+    "errJobForbidden": "Solo quien administra el negocio puede mover trabajos de la cola de impresión.",
+    "errJobAction": "No se pudo mover el trabajo. Inténtalo de nuevo en un momento."
   }
 }
