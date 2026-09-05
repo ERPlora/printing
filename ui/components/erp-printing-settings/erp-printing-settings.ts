@@ -106,6 +106,14 @@ interface CoverageWire {
   liveHosts: number;
   waitingSeconds: number;
   undrained: boolean;
+  /**
+   * The NAME of every device counted in `liveHosts` (hub#1527) — «Imprime desde: Caja 1».
+   *
+   * Optional because it is younger than the query: a hub the fleet has not rolled out yet answers
+   * coverage rows without it, and this module installs into whatever hub is running. Absent, the
+   * screen falls back to the count it has always shown; it never invents a name.
+   */
+  liveHostLabels?: string[];
 }
 
 /** A queued job as `hub.print.jobs` summarizes it — everything except the document. */
@@ -558,14 +566,57 @@ export class ErpPrintingSettings extends LitElement {
   }
 
   /**
-   * How many devices are draining this hub right now, across every station.
+   * How many DEVICES are draining this hub right now, across every station.
    *
-   * The coverage view carries a COUNT and not the hosts' labels, so this screen says how many are
-   * connected and never invents a name the dispatcher did not send. The registry with its labels
-   * only ever travelled over the retired HTTP route.
+   * Counted by name and not by adding up `liveHosts` (hub#1527): the coverage rows are per
+   * station, so the till that prints both the receipts and the kitchen appears in two of them and
+   * the sum announced it as two connected devices. The names are what tell the two cases apart.
+   *
+   * A name is not an identity, though: two tills both called «Caja» in the receipt station ARE
+   * two devices there, and its own `liveHosts` says so. So each name counts as the most slots it
+   * fills in any ONE station — the fewest devices that every station's own count still allows,
+   * never fewer than a station can see on its own.
+   *
+   * A hub older than hub#1527 sends no names, and there the sum is still the only answer there
+   * is — the old behaviour, on the hubs that had it, rather than a zero.
    */
   private get liveHostCount(): number {
-    return this.coverage.reduce((n, c) => n + c.liveHosts, 0);
+    const perName = new Map<string, number>();
+    let unnamed = 0;
+    for (const c of this.coverage) {
+      const labels = c.liveHostLabels ?? [];
+      if (!labels.length) {
+        unnamed += c.liveHosts;
+        continue;
+      }
+      const here = new Map<string, number>();
+      for (const name of labels) here.set(name, (here.get(name) ?? 0) + 1);
+      for (const [name, n] of here) perName.set(name, Math.max(perName.get(name) ?? 0, n));
+    }
+    let named = 0;
+    for (const n of perName.values()) named += n;
+    return named + unnamed;
+  }
+
+  /**
+   * Who is printing this station's work: their names when the hub sends them, how many when it
+   * does not (hub#1527).
+   *
+   * The count answers the alarm ("nobody is taking the kitchen's tickets"); the names answer the
+   * healthy state, which is the one an owner opens every day — with a till and a tablet, "2
+   * devices" leaves them to go and try which of the two is doing it.
+   *
+   * An EMPTY list falls back to the count rather than painting «Imprime desde: » with nothing
+   * after the colon, which would read as a bug on the owner's screen.
+   */
+  private liveHostsText(
+    c: CoverageWire,
+    t: (k: string, p?: Record<string, unknown>) => string,
+  ): string {
+    const names = c.liveHostLabels ?? [];
+    return names.length
+      ? t('ui.queueLiveHostNames', { hosts: names.join(', ') })
+      : t('ui.queueLiveHosts', { n: c.liveHosts });
   }
 
   /** The outcome of the last gesture, or the refusal explained by its code. */
@@ -679,7 +730,7 @@ export class ErpPrintingSettings extends LitElement {
                   ? html`<div>${t('ui.queueWaitingJobs', { waiting: c.waiting })} · ${t('ui.queueOldest', { age: this.waitText(c.waitingSeconds, t) })}</div>`
                   : nothing}
                 ${c.liveHosts > 0
-                  ? html`<div class="hosts">${t('ui.queueLiveHosts', { n: c.liveHosts })}</div>`
+                  ? html`<div class="hosts">${this.liveHostsText(c, t)}</div>`
                   : nothing}
               </div>
             `;

@@ -51,6 +51,7 @@
     "queueWaitingJobs": "En cola: {waiting}",
     "queueOldest": "el más antiguo lleva {age}",
     "queueLiveHosts": "Imprime desde {n} dispositivo(s).",
+    "queueLiveHostNames": "Imprime desde: {hosts}.",
     "queueAllClear": "Todo al día: la cola está vacía y hay {n} dispositivo(s) conectado(s).",
     "queueAllClearNoHost": "Ahora mismo no hay nada en cola. No hay ningún dispositivo de impresión conectado: los trabajos nuevos quedarán en la cola hasta que uno se conecte.",
     "statusReady": "Listo",

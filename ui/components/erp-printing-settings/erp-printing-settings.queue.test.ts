@@ -35,6 +35,29 @@ const COVERAGE_HEALTHY = [
   { role: 'receipt', waiting: 0, liveHosts: 1, waitingSeconds: 0, undrained: false },
 ];
 
+/**
+ * The same healthy hub as the runtime answers it since hub#1527: the count AND the names.
+ *
+ * `liveHostLabels` is what this whole issue is about — the owner with a till and a tablet reading
+ * "2 devices" has to go and try which of the two is printing.
+ */
+const COVERAGE_NAMED = [
+  {
+    role: 'receipt',
+    waiting: 0,
+    liveHosts: 2,
+    waitingSeconds: 0,
+    undrained: false,
+    liveHostLabels: ['Caja 1', 'Tablet sala'],
+  },
+];
+
+/** One till covering TWO stations: the same device, named under each of them. */
+const COVERAGE_ONE_DEVICE_TWO_ROLES = [
+  { role: 'receipt', waiting: 0, liveHosts: 1, waitingSeconds: 0, undrained: false, liveHostLabels: ['Caja 1'] },
+  { role: 'kitchen', waiting: 0, liveHosts: 1, waitingSeconds: 0, undrained: false, liveHostLabels: ['Caja 1'] },
+];
+
 /** `hub.print.jobs` rows — `print_queue::status_view`. The document never travels here. */
 const JOBS_PENDING = [
   {
@@ -337,6 +360,84 @@ describe('per-role coverage rows', () => {
   });
 });
 
+// ── hub#1527: the healthy state NAMES the devices, it does not count them ─────────────────────
+//
+// «Imprime desde: Caja 1» is what the screen said before printing#30 moved the read to the
+// dispatcher; `hub.print.coverage` only carried a count, so the sentence became "2 devices". The
+// count is the alarm and it is fine — the names are the state an owner opens every day.
+//
+// The field arrives OPTIONAL on purpose: a hub older than hub#1527 answers coverage rows without
+// it, and this screen ships to whatever hub has it installed. Falling back to the count is what
+// keeps the module from going blank on a hub that has not been rolled out yet.
+
+describe('the live devices of a station are NAMED (hub#1527)', () => {
+  it('lists the names the hub sends instead of how many there are', async () => {
+    stubErplora({ coverage: COVERAGE_NAMED, jobs: {} });
+    const el = await mount();
+
+    const hosts = el.shadowRoot.querySelector('.queue-role .hosts');
+    expect(hosts, 'the station does not say who is printing').toBeTruthy();
+    expect(hosts?.textContent ?? '').toContain('Caja 1');
+    expect(hosts?.textContent ?? '').toContain('Tablet sala');
+  });
+
+  it('falls back to the count when the hub is older and sends no names', async () => {
+    // Not a hypothetical: the module installs into hubs the fleet has not rolled out yet.
+    stubErplora({ coverage: COVERAGE_HEALTHY, jobs: {} });
+    const el = await mount();
+
+    const hosts = el.shadowRoot.querySelector('.queue-role .hosts');
+    expect(hosts?.textContent ?? '', 'the old sentence is the fallback, not a blank').toContain('1');
+  });
+
+  it('an empty list of names is treated as no names, never as an empty sentence', async () => {
+    // `liveHosts > 0` with `liveHostLabels: []` cannot happen in one read of a healthy hub, but a
+    // row assembled by anything other than `coverage_view` could hand it over — and «Imprime
+    // desde: » with nothing after the colon reads as a bug on the owner's screen.
+    stubErplora({
+      coverage: [{ role: 'receipt', waiting: 0, liveHosts: 1, waitingSeconds: 0, undrained: false, liveHostLabels: [] }],
+      jobs: {},
+    });
+    const el = await mount();
+
+    const hosts = el.shadowRoot.querySelector('.queue-role .hosts');
+    expect(hosts?.textContent ?? '').toContain('1');
+    expect(hosts?.textContent ?? '').not.toMatch(/:\s*$/);
+  });
+
+  it('counts a device that covers two stations ONCE in the all-clear line', async () => {
+    // The summary adds up `liveHosts` per role, so the till that prints both the receipts and the
+    // kitchen used to be announced as two connected devices. With the names in hand the honest
+    // answer is how many DEVICES there are, not how many station slots they fill.
+    stubErplora({ coverage: COVERAGE_ONE_DEVICE_TWO_ROLES, jobs: {} });
+    const el = await mount();
+
+    const allClear = el.shadowRoot.querySelector('p.ok');
+    expect(allClear, 'the all-clear line is missing').toBeTruthy();
+    expect(allClear?.textContent ?? '').toContain('1');
+    expect(allClear?.textContent ?? '', 'the same till counted twice').not.toContain('2');
+  });
+
+  it('two devices that share a name are still TWO devices in the all-clear line', async () => {
+    // A name is not an identity: two tills both called «Caja» fill two slots of the same station,
+    // and that station's own `liveHosts` says so. Collapsing the names into a set would announce
+    // ONE device where the station reports two — the count must never drop below what any single
+    // station can see (rv-hub-1557's finding on printing#33).
+    stubErplora({
+      coverage: [
+        { role: 'receipt', waiting: 0, liveHosts: 2, waitingSeconds: 0, undrained: false, liveHostLabels: ['Caja', 'Caja'] },
+        { role: 'kitchen', waiting: 0, liveHosts: 1, waitingSeconds: 0, undrained: false, liveHostLabels: ['Caja'] },
+      ],
+      jobs: {},
+    });
+    const el = await mount();
+
+    const allClear = el.shadowRoot.querySelector('p.ok');
+    expect(allClear, 'the all-clear line is missing').toBeTruthy();
+    expect(allClear?.textContent ?? '', 'two same-named devices collapsed into one').toContain('2');
+  });
+});
+
 // ── The job list ──────────────────────────────────────────────────────────────────────────────
 
 describe('the queue listing', () => {
@@ -624,6 +725,7 @@ describe('catalog parity for the queue strings (en source of truth, ADR-0055/019
     const keys = [
       'queueTitle', 'queueRefresh', 'queueRefreshing', 'queueAllClear', 'queueAllClearNoHost',
       'queueAlertWaiting', 'queueNoDevice', 'queueWaitingJobs', 'queueOldest', 'queueLiveHosts',
+      'queueLiveHostNames',
       'statusReady', 'statusStalled', 'statusUnattended',
       'jobPending', 'jobPrinting', 'jobDead', 'jobAttempts', 'jobLastError', 'jobAge',
       'errQueueLoad', 'docKitchenOrder', 'docReceipt', 'docBarcodeLabel',
@@ -733,6 +835,27 @@ describe.each([
     const notice = el.shadowRoot.querySelector('.job-notice')?.textContent ?? '';
     expect(notice, `the outcome is not ui.jobRetried in ${locale}`).toContain(ui.jobRetried);
     expect(notice).not.toContain(other.jobRetried);
+  });
+});
+
+describe.each([
+  ['es', esUi, enUi],
+  ['en', enUi, esUi],
+])('the sentence that names the printing devices comes FROM the catalog (%s)', (locale, ui, other) => {
+  const lang = locale as 'es' | 'en';
+
+  it('writes «printing from» in the active language, never a literal', async () => {
+    stubErplora({ locale: lang, coverage: COVERAGE_NAMED, jobs: {} });
+    const el = await mount();
+
+    const hosts = el.shadowRoot.querySelector('.queue-role .hosts')?.textContent ?? '';
+    const expected = ui.queueLiveHostNames.replace('{hosts}', 'Caja 1, Tablet sala');
+    expect(hosts.trim(), `the station sentence is not ui.queueLiveHostNames in ${locale}`).toBe(expected);
+    // The other language's OPENING («Imprime desde: » / «Printing from: ») must be absent: a
+    // sentence hardcoded in the template would survive the language it was written in.
+    expect(hosts, `the ${locale} screen is speaking the other language`).not.toContain(
+      other.queueLiveHostNames.split('{hosts}')[0],
+    );
   });
 });
 

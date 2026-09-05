@@ -1321,6 +1321,7 @@ var es_default = {
     queueWaitingJobs: "En cola: {waiting}",
     queueOldest: "el m\xE1s antiguo lleva {age}",
     queueLiveHosts: "Imprime desde {n} dispositivo(s).",
+    queueLiveHostNames: "Imprime desde: {hosts}.",
     queueAllClear: "Todo al d\xEDa: la cola est\xE1 vac\xEDa y hay {n} dispositivo(s) conectado(s).",
     queueAllClearNoHost: "Ahora mismo no hay nada en cola. No hay ning\xFAn dispositivo de impresi\xF3n conectado: los trabajos nuevos quedar\xE1n en la cola hasta que uno se conecte.",
     statusReady: "Listo",
@@ -1417,6 +1418,7 @@ var en_default = {
     queueWaitingJobs: "Waiting: {waiting}",
     queueOldest: "oldest has waited {age}",
     queueLiveHosts: "Printing from {n} device(s).",
+    queueLiveHostNames: "Printing from: {hosts}.",
     queueAllClear: "All clear: the queue is empty and {n} device(s) are connected.",
     queueAllClearNoHost: "Nothing is waiting right now. No print device is connected: new jobs will stay in the queue until one connects.",
     statusReady: "Ready",
@@ -1832,14 +1834,51 @@ var ErpPrintingSettings = class extends i3 {
     this.saved = false;
   }
   /**
-   * How many devices are draining this hub right now, across every station.
+   * How many DEVICES are draining this hub right now, across every station.
    *
-   * The coverage view carries a COUNT and not the hosts' labels, so this screen says how many are
-   * connected and never invents a name the dispatcher did not send. The registry with its labels
-   * only ever travelled over the retired HTTP route.
+   * Counted by name and not by adding up `liveHosts` (hub#1527): the coverage rows are per
+   * station, so the till that prints both the receipts and the kitchen appears in two of them and
+   * the sum announced it as two connected devices. The names are what tell the two cases apart.
+   *
+   * A name is not an identity, though: two tills both called «Caja» in the receipt station ARE
+   * two devices there, and its own `liveHosts` says so. So each name counts as the most slots it
+   * fills in any ONE station — the fewest devices that every station's own count still allows,
+   * never fewer than a station can see on its own.
+   *
+   * A hub older than hub#1527 sends no names, and there the sum is still the only answer there
+   * is — the old behaviour, on the hubs that had it, rather than a zero.
    */
   get liveHostCount() {
-    return this.coverage.reduce((n5, c4) => n5 + c4.liveHosts, 0);
+    const perName = /* @__PURE__ */ new Map();
+    let unnamed = 0;
+    for (const c4 of this.coverage) {
+      const labels = c4.liveHostLabels ?? [];
+      if (!labels.length) {
+        unnamed += c4.liveHosts;
+        continue;
+      }
+      const here = /* @__PURE__ */ new Map();
+      for (const name of labels) here.set(name, (here.get(name) ?? 0) + 1);
+      for (const [name, n5] of here) perName.set(name, Math.max(perName.get(name) ?? 0, n5));
+    }
+    let named = 0;
+    for (const n5 of perName.values()) named += n5;
+    return named + unnamed;
+  }
+  /**
+   * Who is printing this station's work: their names when the hub sends them, how many when it
+   * does not (hub#1527).
+   *
+   * The count answers the alarm ("nobody is taking the kitchen's tickets"); the names answer the
+   * healthy state, which is the one an owner opens every day — with a till and a tablet, "2
+   * devices" leaves them to go and try which of the two is doing it.
+   *
+   * An EMPTY list falls back to the count rather than painting «Imprime desde: » with nothing
+   * after the colon, which would read as a bug on the owner's screen.
+   */
+  liveHostsText(c4, t3) {
+    const names = c4.liveHostLabels ?? [];
+    return names.length ? t3("ui.queueLiveHostNames", { hosts: names.join(", ") }) : t3("ui.queueLiveHosts", { n: c4.liveHosts });
   }
   /** The outcome of the last gesture, or the refusal explained by its code. */
   renderJobNotice(t3) {
@@ -1933,7 +1972,7 @@ var ErpPrintingSettings = class extends i3 {
                 <div><span class="queue-role-status ${status}">${t3(this.roleStatusKey(status))}</span></div>
                 <div><strong>${this.roleLabel(c4.role)}</strong></div>
                 ${c4.waiting > 0 ? b2`<div>${t3("ui.queueWaitingJobs", { waiting: c4.waiting })} · ${t3("ui.queueOldest", { age: this.waitText(c4.waitingSeconds, t3) })}</div>` : A}
-                ${c4.liveHosts > 0 ? b2`<div class="hosts">${t3("ui.queueLiveHosts", { n: c4.liveHosts })}</div>` : A}
+                ${c4.liveHosts > 0 ? b2`<div class="hosts">${this.liveHostsText(c4, t3)}</div>` : A}
               </div>
             `;
     })}
