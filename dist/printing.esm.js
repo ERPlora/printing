@@ -1327,6 +1327,9 @@ var es_default = {
     statusReady: "Listo",
     statusStalled: "En cola, sin impresora",
     statusUnattended: "Sin impresora conectada",
+    printerStatusReady: "Lista",
+    printerStatusStopped: "Parada",
+    printerStatusUnknown: "Desconocido",
     jobPending: "Pendiente",
     jobPrinting: "Imprimiendo",
     jobDead: "Muerto",
@@ -1424,6 +1427,9 @@ var en_default = {
     statusReady: "Ready",
     statusStalled: "Waiting, no printer",
     statusUnattended: "No printer connected",
+    printerStatusReady: "Ready",
+    printerStatusStopped: "Stopped",
+    printerStatusUnknown: "Unknown",
     jobPending: "Pending",
     jobPrinting: "Printing",
     jobDead: "Dead",
@@ -1790,6 +1796,33 @@ var ErpPrintingSettings = class extends i3 {
     return key === status ? status : erplora().t(CATALOG, key);
   }
   /**
+   * The state of a PRINTER, keyed — `crates/peripherals/src/usb.rs` answers one of these three.
+   *
+   * Separate from `roleStatusKey()` on purpose: that one names how a ROLE is covered, this one
+   * names a device, and Spanish does not even agree on the gender («el rol está Listo» vs «la
+   * impresora está Lista»). One vocabulary borrowed for two meanings drifts the moment either
+   * side gains a state.
+   */
+  printerStatusKey(status) {
+    const keys = {
+      ready: "ui.printerStatusReady",
+      stopped: "ui.printerStatusStopped",
+      unknown: "ui.printerStatusUnknown"
+    };
+    return keys[status] ?? status;
+  }
+  /**
+   * The printer state in the person's words, or the raw word for a state this module cannot name.
+   *
+   * The fallback is the point: this module installs into whatever hub is running, and a hub newer
+   * than it can answer a fourth word. Blanking the badge would hide exactly what the person at the
+   * counter reads to choose a printer — the raw word at least says something.
+   */
+  printerStatusLabel(status) {
+    const key = this.printerStatusKey(status);
+    return key === status ? status : erplora().t(CATALOG, key);
+  }
+  /**
    * What to say after a gesture — resolved by CODE, never by the sentence the runtime sent
    * (ADR-0055).
    *
@@ -2041,7 +2074,7 @@ var ErpPrintingSettings = class extends i3 {
       (p3) => b2`
             <div class="printer">
               <div class="grow">
-                <div>${p3.name} <span class="badge">${p3.status}</span></div>
+                <div>${p3.name} <span class="badge">${this.printerStatusLabel(p3.status)}</span></div>
                 <div class="id">${p3.id}${p3.mac ? b2` · ${p3.mac}` : A}</div>
               </div>
               <ion-select placeholder=${t3("ui.rolePlaceholder")} .value=${this.roleOf(p3)} interface="popover"
