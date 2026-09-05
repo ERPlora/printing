@@ -572,18 +572,30 @@ export class ErpPrintingSettings extends LitElement {
    * station, so the till that prints both the receipts and the kitchen appears in two of them and
    * the sum announced it as two connected devices. The names are what tell the two cases apart.
    *
+   * A name is not an identity, though: two tills both called «Caja» in the receipt station ARE
+   * two devices there, and its own `liveHosts` says so. So each name counts as the most slots it
+   * fills in any ONE station — the fewest devices that every station's own count still allows,
+   * never fewer than a station can see on its own.
+   *
    * A hub older than hub#1527 sends no names, and there the sum is still the only answer there
    * is — the old behaviour, on the hubs that had it, rather than a zero.
    */
   private get liveHostCount(): number {
-    const named = new Set<string>();
+    const perName = new Map<string, number>();
     let unnamed = 0;
     for (const c of this.coverage) {
       const labels = c.liveHostLabels ?? [];
-      if (labels.length) for (const name of labels) named.add(name);
-      else unnamed += c.liveHosts;
+      if (!labels.length) {
+        unnamed += c.liveHosts;
+        continue;
+      }
+      const here = new Map<string, number>();
+      for (const name of labels) here.set(name, (here.get(name) ?? 0) + 1);
+      for (const [name, n] of here) perName.set(name, Math.max(perName.get(name) ?? 0, n));
     }
-    return named.size + unnamed;
+    let named = 0;
+    for (const n of perName.values()) named += n;
+    return named + unnamed;
   }
 
   /**

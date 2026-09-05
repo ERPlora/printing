@@ -417,6 +417,25 @@ describe('the live devices of a station are NAMED (hub#1527)', () => {
     expect(allClear?.textContent ?? '').toContain('1');
     expect(allClear?.textContent ?? '', 'the same till counted twice').not.toContain('2');
   });
+
+  it('two devices that share a name are still TWO devices in the all-clear line', async () => {
+    // A name is not an identity: two tills both called «Caja» fill two slots of the same station,
+    // and that station's own `liveHosts` says so. Collapsing the names into a set would announce
+    // ONE device where the station reports two — the count must never drop below what any single
+    // station can see (rv-hub-1557's finding on printing#33).
+    stubErplora({
+      coverage: [
+        { role: 'receipt', waiting: 0, liveHosts: 2, waitingSeconds: 0, undrained: false, liveHostLabels: ['Caja', 'Caja'] },
+        { role: 'kitchen', waiting: 0, liveHosts: 1, waitingSeconds: 0, undrained: false, liveHostLabels: ['Caja'] },
+      ],
+      jobs: {},
+    });
+    const el = await mount();
+
+    const allClear = el.shadowRoot.querySelector('p.ok');
+    expect(allClear, 'the all-clear line is missing').toBeTruthy();
+    expect(allClear?.textContent ?? '', 'two same-named devices collapsed into one').toContain('2');
+  });
 });
 
 // ── The job list ──────────────────────────────────────────────────────────────────────────────

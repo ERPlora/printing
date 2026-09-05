@@ -1840,18 +1840,30 @@ var ErpPrintingSettings = class extends i3 {
    * station, so the till that prints both the receipts and the kitchen appears in two of them and
    * the sum announced it as two connected devices. The names are what tell the two cases apart.
    *
+   * A name is not an identity, though: two tills both called «Caja» in the receipt station ARE
+   * two devices there, and its own `liveHosts` says so. So each name counts as the most slots it
+   * fills in any ONE station — the fewest devices that every station's own count still allows,
+   * never fewer than a station can see on its own.
+   *
    * A hub older than hub#1527 sends no names, and there the sum is still the only answer there
    * is — the old behaviour, on the hubs that had it, rather than a zero.
    */
   get liveHostCount() {
-    const named = /* @__PURE__ */ new Set();
+    const perName = /* @__PURE__ */ new Map();
     let unnamed = 0;
     for (const c4 of this.coverage) {
       const labels = c4.liveHostLabels ?? [];
-      if (labels.length) for (const name of labels) named.add(name);
-      else unnamed += c4.liveHosts;
+      if (!labels.length) {
+        unnamed += c4.liveHosts;
+        continue;
+      }
+      const here = /* @__PURE__ */ new Map();
+      for (const name of labels) here.set(name, (here.get(name) ?? 0) + 1);
+      for (const [name, n5] of here) perName.set(name, Math.max(perName.get(name) ?? 0, n5));
     }
-    return named.size + unnamed;
+    let named = 0;
+    for (const n5 of perName.values()) named += n5;
+    return named + unnamed;
   }
   /**
    * Who is printing this station's work: their names when the hub sends them, how many when it
