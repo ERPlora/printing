@@ -19,14 +19,23 @@ const SETTINGS = {
   auto_print_on_sale: 1, open_drawer_on_sale: 0, print_kitchen: 0,
 };
 
+/** A printer as `discoverPrinters()` hands it over — only what this screen reads. */
+interface PrinterWire {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  paper_width: number;
+}
+
 /** `detect()` answering `{online:false}` IS the browser-without-the-app case (ADR-0196 §3). */
-function mountWith(online: boolean) {
+function mountWith(online: boolean, printers: PrinterWire[] = []) {
   (globalThis as Record<string, unknown>).erplora = {
     query: async () => SETTINGS,
     command: async () => ({}),
     peripherals: {
       detect: async () => ({ online, version: online ? '1.0.0' : undefined }),
-      discoverPrinters: async () => [],
+      discoverPrinters: async () => printers,
       getDevices: async () => [],
     },
     locale: 'es',
@@ -109,5 +118,65 @@ describe('the setting rows are vertically separated (printing#17)', () => {
     const cssText = String((mod.ErpPrintingSettings as unknown as { styles: { cssText: string } }).styles.cssText);
     const row = cssText.match(/\.row\s*\{([^}]*)\}/)?.[1] ?? '';
     expect(row, '`.row` has no margin-bottom: the toggles stack flush').toMatch(/margin-bottom\s*:/);
+  });
+});
+
+// printing#34 — the state badge next to each printer was the ONE string on this screen that never
+// went through `t(...)`: it painted the hub's wire word raw.
+//
+// It went unnoticed while the hub answered a fixed `"ready"` for every printer — a word nobody
+// read because it never changed. hub#1541 makes it tell the truth (`ready` | `stopped` |
+// `unknown`, the constants of `crates/peripherals/src/usb.rs`), so the badge starts carrying the
+// information the person at the counter uses to pick a printer — in English, on a Spanish screen.
+//
+// The contract mirrors `jobStatusLabel()`, which the job queue on this same screen already has:
+// the state is shown TRANSLATED, and a word this module has no name for is shown RAW rather than
+// blank — a hub newer than the installed module must never leave the badge empty.
+describe('each printer shows its state in the person\'s language (printing#34)', () => {
+  /** The three words `discoverPrinters()` can answer with, and the key each one is named by. */
+  const STATES: Array<{ wire: string; key: string }> = [
+    { wire: 'ready', key: 'printerStatusReady' },
+    { wire: 'stopped', key: 'printerStatusStopped' },
+    { wire: 'unknown', key: 'printerStatusUnknown' },
+  ];
+
+  const printer = (status: string): PrinterWire => ({
+    id: `network:192.168.1.5${status.length}:9100`,
+    name: `Star TSP143 ${status}`,
+    type: 'network',
+    status,
+    paper_width: 80,
+  });
+
+  /** The text of every state badge in the printer list, in order. */
+  function badges(el: HTMLElement & { shadowRoot: ShadowRoot }): string[] {
+    return Array.from(el.shadowRoot.querySelectorAll('.printer .badge')).map((b) => (b.textContent ?? '').trim());
+  }
+
+  it.each(STATES)('«$wire» is painted as its Spanish translation, never as the wire word', async ({ wire, key }) => {
+    mountWith(true, [printer(wire)]);
+    const el = await montar();
+
+    const [badge] = badges(el);
+    expect(badge, `no state badge rendered for a «${wire}» printer`).toBeDefined();
+    expect(badge, `the badge still shows the hub's wire word «${wire}» on a Spanish screen`).not.toBe(wire);
+    expect(badge).toBe(catalogs.es[key]);
+  });
+
+  it('a state this module has no name for is shown raw, never blank', async () => {
+    // A hub newer than the installed module can answer a fourth word. Blanking the badge would
+    // hide the very information the person needs; the raw word at least says something.
+    mountWith(true, [printer('paused')]);
+    const el = await montar();
+
+    expect(badges(el)).toEqual(['paused']);
+  });
+
+  it('the three states are named in both catalogs — English is the source (ADR-0055/0199)', () => {
+    for (const { key } of STATES) {
+      expect(catalogs.en, `«${key}» has no English source string`).toHaveProperty(key);
+      expect(catalogs.es, `«${key}» has no Spanish translation`).toHaveProperty(key);
+      expect(catalogs.es[key], `«${key}» is not translated: the Spanish repeats the English`).not.toBe(catalogs.en[key]);
+    }
   });
 });
