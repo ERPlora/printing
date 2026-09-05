@@ -99,6 +99,19 @@ const QUEUE_LIMIT = 100;
 /** The buckets the screen paints, worst-last so `pending` is read first. `done` is history. */
 const QUEUE_STATUSES = ['pending', 'printing', 'dead'] as const;
 
+/**
+ * The bucket of tickets somebody retired — read ONLY by whoever administers the hub (hub#1565).
+ *
+ * It is history and not state, so it is asked for separately, painted under its own heading and
+ * capped far below {@link QUEUE_LIMIT}: a year of retired tickets must not push the rows that are
+ * on fire off the screen. `done` stays unasked for exactly the same reason and has no such
+ * question behind it.
+ */
+const RETIRED_STATUS = 'discarded';
+
+/** Page size of the retired bucket: enough to answer «who binned my ticket?», never a ledger. */
+const RETIRED_LIMIT = 20;
+
 /** Per-role coverage as the runtime computes and RESOLVES it: `undrained` arrives decided. */
 interface CoverageWire {
   role: string;
@@ -126,6 +139,34 @@ interface QueueJobWire {
   attempts: number;
   createdAt: string;
   lastError: string | null;
+  /**
+   * **The stamp** a person left on this job (hub#1108/#1532, readable since hub#1565).
+   *
+   * Every field is optional twice over, and both reasons matter:
+   *
+   *  - The hub only sends the block when the gesture actually HAPPENED — a job waiting its turn
+   *    carries none of it, and answering `discardedBy: ''` on it would have this screen render
+   *    "retired by —" on a perfectly healthy ticket.
+   *  - The stamp is the BACK OFFICE's (hub#1565): a counter session is served the same queue
+   *    without it. Not a refusal — the state of the queue stays open to whoever is standing next
+   *    to the printer (hub#987) — just a smaller answer.
+   *
+   * And a hub older than this module answers without them either way: a module installs into
+   * whatever runtime is running.
+   *
+   * `discardedByName` is the person; `discardedBy` is the `hub_user:<id>` the door resolved from
+   * the session and the only identity a request body cannot forge. The screen prints the name and
+   * falls back to the id — never to an empty label.
+   */
+  discardedAt?: string;
+  discardedBy?: string;
+  discardedByName?: string;
+  discardedByModule?: string;
+  discardReason?: string;
+  retriedAt?: string;
+  retriedBy?: string;
+  retriedByName?: string;
+  retriedByModule?: string;
 }
 
 /** The job states each recovery gesture applies to, mirrored from `print_queue` (hub#1108). */
@@ -210,6 +251,12 @@ export class ErpPrintingSettings extends LitElement {
     .queue-job .id { font-family:ui-monospace, monospace; font-size:.8rem; opacity:.7; }
     .queue-job .meta { font-size:.8rem; opacity:.75; white-space:nowrap; }
     .queue-job .badge.st-dead { background:#ffe3e3; color:#c92a2a; }
+    .queue-job .badge.st-discarded { background:#0001; color:#495057; }
+    /* The stamp is an audit line, not the headline: readable, secondary, and it wraps like the
+       rest of the row (a reason somebody typed can be long and a 390 px screen is the floor). */
+    .queue-job .job-stamp { font-size:.8rem; opacity:.75; margin-top:.15rem; overflow-wrap:anywhere; }
+    .queue-job.retired { opacity:.85; }
+    .queue-retired-title { margin:1rem 0 .5rem; font-size:.9rem; opacity:.75; font-weight:600; }
     .queue-job .badge.st-printing { background:#d0ebff; color:#1971c2; }
     /* printing#30 — the two recovery gestures. The row already wraps; the action group wraps too
        and takes the full width so that at 390 px the buttons drop under the job instead of
@@ -235,6 +282,8 @@ export class ErpPrintingSettings extends LitElement {
   // printing#28: the hub's queue — coverage per role and the stuck jobs.
   @state() private coverage: CoverageWire[] = [];
   @state() private queue: QueueJobWire[] = [];
+  /** The retired bucket, kept apart: it is history, and only the back office is served it. */
+  @state() private retired: QueueJobWire[] = [];
   @state() private queueLoading = false;
   @state() private queueError = '';
   @state() private queueLoaded = false;
@@ -271,6 +320,10 @@ export class ErpPrintingSettings extends LitElement {
   private async loadQueue(): Promise<void> {
     this.queueLoading = true;
     try {
+      // The retired bucket is asked for ONLY by the audience that is served its stamp (hub#1565).
+      // Asking for it as a cashier would spend a round trip on rows the hub answers stripped of the
+      // only thing that makes them worth reading.
+      const retiring = this.canManageQueue;
       const [coverage, ...buckets] = await Promise.all([
         // Both names are written as LITERALS on purpose: ADR-0127 extracts the module's
         // interoperability contract from the call site, and a constant hides the dependency.
@@ -280,12 +333,27 @@ export class ErpPrintingSettings extends LitElement {
         ...QUEUE_STATUSES.map((status) =>
           erplora().query<QueueJobWire[]>('hub.print.jobs', { status, limit: QUEUE_LIMIT }),
         ),
+        ...(retiring
+          ? [
+              erplora().query<QueueJobWire[]>('hub.print.jobs', {
+                status: RETIRED_STATUS,
+                limit: RETIRED_LIMIT,
+              }),
+            ]
+          : []),
       ]);
       const oldest = (a: QueueJobWire, b: QueueJobWire): number =>
         Date.parse(a.createdAt) - Date.parse(b.createdAt);
+      const rows = (v: unknown): QueueJobWire[] => (Array.isArray(v) ? (v as QueueJobWire[]) : []);
       this.coverage = Array.isArray(coverage) ? coverage : [];
       // Worst first for the eye: what is waiting (oldest at top), what is out, what died.
-      this.queue = buckets.flatMap((rows) => (Array.isArray(rows) ? [...rows].sort(oldest) : []));
+      this.queue = buckets
+        .slice(0, QUEUE_STATUSES.length)
+        .flatMap((bucket) => [...rows(bucket)].sort(oldest));
+      // 🔴 NOT sorted. The hub reads a closed bucket `seq DESC` on purpose (hub#1565): the ticket
+      // somebody is asking about is always one of the LAST retired, and `sort(oldest)` here would
+      // turn the page it hands back into the twenty oldest of the whole page — the exact opposite.
+      this.retired = retiring ? rows(buckets[QUEUE_STATUSES.length]) : [];
       this.queueError = '';
       this.queueLoaded = true;
     } catch (e) {
@@ -293,6 +361,7 @@ export class ErpPrintingSettings extends LitElement {
       // this screen exists to stop. The CODE is appended (never the runtime's prose) so a support
       // call has something stable to name.
       const code = codeOf(e);
+      this.retired = [];
       this.queueError = `${erplora().t(CATALOG, 'ui.errQueueLoad')}${code ? ` (${code})` : ''}`;
     } finally {
       this.queueLoading = false;
@@ -504,6 +573,7 @@ export class ErpPrintingSettings extends LitElement {
       pending: 'ui.jobPending',
       printing: 'ui.jobPrinting',
       dead: 'ui.jobDead',
+      [RETIRED_STATUS]: 'ui.jobStatusDiscarded',
     };
     return keys[status] ?? status;
   }
@@ -666,6 +736,63 @@ export class ErpPrintingSettings extends LitElement {
   }
 
   /**
+   * The moment a gesture happened, in the person's own locale — or `''` for anything that is not
+   * a date. «Invalid Date» painted on an audit line is worse than no line at all.
+   */
+  private momentText(iso?: string): string {
+    if (!iso) return '';
+    const at = new Date(iso);
+    return Number.isNaN(at.getTime())
+      ? ''
+      : at.toLocaleString(erplora().locale, { dateStyle: 'short', timeStyle: 'short' });
+  }
+
+  /** Who a stamp names: the person, falling back to the principal, never to an empty label. */
+  private actor(name?: string, principal?: string): string {
+    return (name ?? '').trim() || (principal ?? '').trim();
+  }
+
+  /**
+   * **The stamp, read back** (hub#1565) — «Retirado por Ana desde printing · 22/8/26, 12:05».
+   *
+   * Whole sentences from the catalog, one per case, instead of gluing fragments together: a
+   * translation is a sentence, and «by» + «from» + a date assembled in source order is how a
+   * screen ends up reading like a telegram in every language but the one it was written in.
+   *
+   * A gesture that never happened paints nothing at all, and neither does one whose stamp did not
+   * travel — a counter session, or a hub older than the fix.
+   */
+  private renderJobStamp(j: QueueJobWire, t: (k: string, p?: Record<string, unknown>) => string) {
+    const lines: string[] = [];
+    const discardedWhen = this.momentText(j.discardedAt);
+    const discardedWho = this.actor(j.discardedByName, j.discardedBy);
+    if (discardedWhen && discardedWho) {
+      const via = (j.discardedByModule ?? '').trim();
+      lines.push(
+        via
+          ? t('ui.jobStampDiscardedVia', { who: discardedWho, module: via, when: discardedWhen })
+          : t('ui.jobStampDiscarded', { who: discardedWho, when: discardedWhen }),
+      );
+      const reason = (j.discardReason ?? '').trim();
+      // The half only the person knew. Absent when nobody typed one: demanding an essay to close a
+      // row is how a recovery queue stops being drained, so an empty reason is a normal outcome.
+      if (reason) lines.push(t('ui.jobStampDiscardReason', { reason }));
+    }
+    const retriedWhen = this.momentText(j.retriedAt);
+    const retriedWho = this.actor(j.retriedByName, j.retriedBy);
+    if (retriedWhen && retriedWho) {
+      const via = (j.retriedByModule ?? '').trim();
+      lines.push(
+        via
+          ? t('ui.jobStampRetriedVia', { who: retriedWho, module: via, when: retriedWhen })
+          : t('ui.jobStampRetried', { who: retriedWho, when: retriedWhen }),
+      );
+    }
+    if (lines.length === 0) return nothing;
+    return html`${lines.map((line) => html`<div class="job-stamp">${line}</div>`)}`;
+  }
+
+  /**
    * The two gestures, offered only where they can work.
    *
    * A `printing` job gets neither: its lease already covers a host that died, and binning a ticket a
@@ -772,12 +899,29 @@ export class ErpPrintingSettings extends LitElement {
                 <div>${this.docLabel(j.documentType)} <span class="badge st-${j.status}">${t(this.jobStatusKey(j.status))}</span></div>
                 <div class="id">${j.jobId} · ${this.roleLabel(j.role)} · ${t('ui.jobAge', { age: this.waitText((Date.now() - Date.parse(j.createdAt)) / 1000, t) })}</div>
                 ${j.lastError ? html`<div class="err">${t('ui.jobLastError', { error: j.lastError })}</div>` : nothing}
+                ${this.renderJobStamp(j, t)}
               </div>
               <div class="meta">${t('ui.jobAttempts', { n: j.attempts })}</div>
               ${this.renderJobActions(j, t)}
             </div>
           `,
         )}
+        ${this.retired.length > 0
+          ? html`
+              <h4 class="queue-retired-title">${t('ui.queueRetiredTitle')}</h4>
+              ${this.retired.map(
+                (j) => html`
+                  <div class="queue-job retired">
+                    <div class="grow">
+                      <div>${this.docLabel(j.documentType)} <span class="badge st-${j.status}">${t(this.jobStatusKey(j.status))}</span></div>
+                      <div class="id">${j.jobId} · ${this.roleLabel(j.role)}</div>
+                      ${this.renderJobStamp(j, t)}
+                    </div>
+                  </div>
+                `,
+              )}
+            `
+          : nothing}
       </section>
 
       <section>

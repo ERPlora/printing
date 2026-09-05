@@ -93,6 +93,13 @@
     "errJobCapability": "Printing permission has not been granted, so jobs cannot be moved yet.",
     "errJobGoPermissions": "Go to Permissions",
     "errJobForbidden": "Only whoever manages the business can move jobs in the print queue.",
-    "errJobAction": "The job could not be moved. Try again in a moment."
+    "errJobAction": "The job could not be moved. Try again in a moment.",
+    "queueRetiredTitle": "Recently discarded",
+    "jobStatusDiscarded": "Discarded",
+    "jobStampDiscarded": "Discarded by {who} · {when}",
+    "jobStampDiscardedVia": "Discarded by {who} from {module} · {when}",
+    "jobStampDiscardReason": "Reason: {reason}",
+    "jobStampRetried": "Sent again by {who} · {when}",
+    "jobStampRetriedVia": "Sent again by {who} from {module} · {when}"
   }
 }

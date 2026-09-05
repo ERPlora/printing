@@ -281,17 +281,19 @@ describe('the queue is read through the dispatcher (printing#30, ADR-0192)', () 
     expect(getItem, 'the screen still reads the shell session out of localStorage').not.toHaveBeenCalled();
   });
 
-  it('asks for the three buckets it paints, with the hub page size', async () => {
+  it('asks for the three LIVE buckets it paints, with the hub page size', async () => {
     const spies = stubErplora();
     await mount();
     const asked = spies.query.mock.calls
       .filter((c) => c[0] === 'hub.print.jobs')
       .map((c) => c[1] as Record<string, unknown>);
-    expect(asked.map((p) => p.status).sort()).toEqual(['dead', 'pending', 'printing']);
+    const live = asked.filter((p) => p.status !== 'discarded');
+    expect(live.map((p) => p.status).sort()).toEqual(['dead', 'pending', 'printing']);
     // `done` is history, not state: a lifetime of completed tickets would push the interesting
-    // rows off the page.
+    // rows off the page. (`discarded` is history too and IS asked for, but only for the back
+    // office and on a page of its own — hub#1565, tested where that decision lives.)
     expect(asked.map((p) => p.status)).not.toContain('done');
-    for (const p of asked) expect(p.limit).toBe(100);
+    for (const p of live) expect(p.limit).toBe(100);
   });
 });
 
@@ -889,5 +891,240 @@ describe('the queue section folds at 390 px (printing#28, three viewports)', () 
     const acts = cssText.match(/\.job-actions\s*\{([^}]*)\}/)?.[1] ?? '';
     expect(acts, '.job-actions has no rule of its own').not.toBe('');
     expect(acts).toMatch(/flex-wrap\s*:\s*wrap/);
+  });
+});
+
+// ── Reading the stamp back (hub#1565) ─────────────────────────────────────────────────────────
+//
+// hub#1108 and hub#1532 made the hub WRITE who retired a ticket, when, why and through which
+// module; nothing ever read it back. The stamp reached the person who had just made the gesture —
+// it comes in the response of the discard itself — and nobody else. The question a queue actually
+// raises the NEXT day («¿quién me tiró este tique?», «¿por qué salió esta comanda dos veces?») had
+// no answer outside `psql`.
+//
+// Two decisions arrive with the fields, both taken in the issue:
+//
+//  - **The stamp is the back office's** (`hub.administer`), the queue's STATE is not (hub#987). So
+//    the hub simply does not send the stamp to a counter session, and the retired bucket — which is
+//    nothing BUT stamp — is not even asked for.
+//  - **The stamp names a PERSON.** `discardedBy` is `hub_user:<id>`, the only identity a request
+//    body cannot forge and one no merchant can read. `discardedByName` travels beside it and is
+//    what this screen prints, falling back to the principal so a deleted employee never renders as
+//    «retirado por ——».
+//
+// Every field is OPTIONAL on the wire on purpose: this module installs into whatever hub is
+// running, and one older than the fix answers the queue without them.
+
+/** How the hub answers the retired bucket: NEWEST FIRST (`print_queue::list` orders `seq DESC`). */
+const JOBS_DISCARDED = [
+  {
+    jobId: 'sale-2026-08-22-0007',
+    role: 'receipt',
+    documentType: 'receipt',
+    format: 'receipt',
+    status: 'discarded',
+    attempts: 0,
+    createdAt: '2026-08-22T00:20:00Z',
+    lastError: '',
+    discardedAt: '2026-08-22T10:05:00Z',
+    discardedBy: 'hub_user:u9',
+    discardedByName: 'Ana',
+    discardedByModule: 'printing',
+    discardReason: 'duplicado del ticket 42',
+  },
+  {
+    jobId: 'kitchen-order-0990',
+    role: 'kitchen',
+    documentType: 'kitchen_order',
+    format: 'receipt',
+    status: 'discarded',
+    attempts: 0,
+    createdAt: '2026-08-21T22:00:00Z',
+    lastError: '',
+    // A person acting through the shell names no module (hub#1532), and nobody typed a reason.
+    discardedAt: '2026-08-22T09:00:00Z',
+    discardedBy: 'hub_user:u3',
+    discardedByName: 'Leo',
+    discardedByModule: '',
+    discardReason: '',
+  },
+];
+
+/** A job that was DEAD and somebody put back in front of the printers: it is pending again. */
+const JOBS_RETRIED_PENDING = [
+  {
+    jobId: 'sale-2026-08-22-0031',
+    role: 'receipt',
+    documentType: 'receipt',
+    format: 'receipt',
+    status: 'pending',
+    attempts: 3,
+    createdAt: '2026-08-22T00:50:00Z',
+    lastError: '',
+    retriedAt: '2026-08-22T10:30:00Z',
+    retriedBy: 'hub_user:u9',
+    retriedByName: 'Ana',
+    retriedByModule: 'printing',
+  },
+];
+
+/** The stamp lines of a job row, in paint order. */
+function stamps(el: Mounted, jobId: string): string[] {
+  const row = Array.from(el.shadowRoot.querySelectorAll('.queue-job')).find((j) =>
+    (j.textContent ?? '').includes(jobId),
+  );
+  return Array.from(row?.querySelectorAll('.job-stamp') ?? []).map((n) =>
+    (n.textContent ?? '').replace(/\s+/g, ' ').trim(),
+  );
+}
+
+/** The same moment the screen writes, so the assertion does not pin a timezone or a locale. */
+function moment(iso: string, locale: 'es' | 'en'): string {
+  return new Date(iso).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' });
+}
+
+describe('the back office reads the stamp back (hub#1565)', () => {
+  it('asks the hub for the retired bucket too, with a small page of its own', async () => {
+    const spies = stubErplora({ admin: true, coverage: [], jobs: { discarded: JOBS_DISCARDED } });
+    await mount();
+    const asked = spies.query.mock.calls
+      .filter((c) => c[0] === 'hub.print.jobs')
+      .map((c) => c[1] as Record<string, unknown>);
+    const retired = asked.find((p) => p.status === 'discarded');
+    expect(retired, `the retired bucket is never read: ${JSON.stringify(asked)}`).toBeTruthy();
+    // History, not state: it must not be able to bury the rows that are on fire.
+    expect(Number(retired?.limit)).toBeLessThan(100);
+  });
+
+  it('a cashier is not served the retired bucket at all', async () => {
+    const spies = stubErplora({ admin: false, coverage: [], jobs: { discarded: JOBS_DISCARDED } });
+    await mount();
+    const asked = spies.query.mock.calls
+      .filter((c) => c[0] === 'hub.print.jobs')
+      .map((c) => (c[1] as Record<string, unknown>).status);
+    expect(asked.sort()).toEqual(['dead', 'pending', 'printing']);
+  });
+
+  it('says WHO retired the ticket, from which module and why', async () => {
+    stubErplora({ admin: true, coverage: [], jobs: { discarded: JOBS_DISCARDED } });
+    const el = await mount();
+    const lines = stamps(el, 'sale-2026-08-22-0007').join(' | ');
+    expect(lines, `no stamp painted: ${el.shadowRoot.textContent}`).toContain('Ana');
+    expect(lines).toContain('printing');
+    expect(lines).toContain('duplicado del ticket 42');
+    expect(lines, 'the moment is what makes it an answer and not an anecdote').toContain(
+      moment('2026-08-22T10:05:00Z', 'es'),
+    );
+  });
+
+  it('never prints the internal id in place of the person', async () => {
+    stubErplora({ admin: true, coverage: [], jobs: { discarded: JOBS_DISCARDED } });
+    const el = await mount();
+    expect(stamps(el, 'sale-2026-08-22-0007').join(' | ')).not.toContain('hub_user:u9');
+  });
+
+  it('falls back to the principal when the hub could not name the person', async () => {
+    const gone = [{ ...JOBS_DISCARDED[0], discardedByName: undefined, discardedBy: 'hub_user:u-gone' }];
+    stubErplora({ admin: true, coverage: [], jobs: { discarded: gone } });
+    const el = await mount();
+    const lines = stamps(el, 'sale-2026-08-22-0007').join(' | ');
+    // A poor answer beats «retirado por ——»: the audit row keeps the only identity it has.
+    expect(lines).toContain('hub_user:u-gone');
+  });
+
+  it('a person acting through the shell is named WITHOUT inventing a module', async () => {
+    stubErplora({ admin: true, coverage: [], jobs: { discarded: JOBS_DISCARDED } });
+    const el = await mount();
+    const lines = stamps(el, 'kitchen-order-0990');
+    // The WHOLE sentence, not just "does it mention Leo": the `Via` template used with an empty
+    // module reads «Retirado por Leo desde  · 22/8/26» — a dangling preposition a merchant reads
+    // as a bug, and one that "does not contain 'printing'" would happily let through.
+    expect(lines[0]).toBe(
+      esUi.jobStampDiscarded
+        .replace('{who}', 'Leo')
+        .replace('{when}', moment('2026-08-22T09:00:00Z', 'es')),
+    );
+    expect(lines, 'and no reason line when nobody typed one').toHaveLength(1);
+  });
+
+  it('keeps the order the hub sent — the LAST ticket retired is the one somebody is asking about', async () => {
+    stubErplora({ admin: true, coverage: [], jobs: { discarded: JOBS_DISCARDED } });
+    const el = await mount();
+    const ids = Array.from(el.shadowRoot.querySelectorAll('.queue-job'))
+      .map((n) => n.textContent ?? '')
+      .filter((txt) => txt.includes('-0007') || txt.includes('0990'));
+    expect(ids[0]).toContain('sale-2026-08-22-0007');
+  });
+
+  it('says who put a ticket back in front of the printers', async () => {
+    stubErplora({ admin: true, coverage: [], jobs: { pending: JOBS_RETRIED_PENDING } });
+    const el = await mount();
+    const lines = stamps(el, 'sale-2026-08-22-0031').join(' | ');
+    expect(lines).toContain('Ana');
+    expect(lines).toContain(moment('2026-08-22T10:30:00Z', 'es'));
+  });
+
+  it('a hub older than this module paints no ghost stamp', async () => {
+    stubErplora({ admin: true, coverage: [], jobs: { pending: JOBS_PENDING } });
+    const el = await mount();
+    expect(stamps(el, 'kitchen-order-1041')).toEqual([]);
+  });
+
+  it('the retired rows carry no gesture: neither can touch a job already binned', async () => {
+    stubErplora({ admin: true, coverage: [], jobs: { discarded: JOBS_DISCARDED } });
+    const el = await mount();
+    expect(actions(el, 'sale-2026-08-22-0007')).toEqual([]);
+  });
+});
+
+describe.each([
+  ['es', esUi, enUi],
+  ['en', enUi, esUi],
+])('the stamp is painted FROM the catalog (%s)', (locale, ui, other) => {
+  const lang = locale as 'es' | 'en';
+
+  it('every stamp key exists in both languages, and names its facts', () => {
+    for (const k of [
+      'queueRetiredTitle',
+      'jobStatusDiscarded',
+      'jobStampDiscarded',
+      'jobStampDiscardedVia',
+      'jobStampDiscardReason',
+      'jobStampRetried',
+      'jobStampRetriedVia',
+    ]) {
+      expect(esUi[k], `es is missing ui.${k}`).toBeTruthy();
+      expect(enUi[k], `en is missing ui.${k}`).toBeTruthy();
+    }
+    for (const k of ['jobStampDiscarded', 'jobStampRetried']) {
+      expect(esUi[k]).toMatch(/\{who\}/);
+      expect(esUi[k]).toMatch(/\{when\}/);
+      expect(enUi[k]).toMatch(/\{who\}/);
+    }
+    expect(esUi.jobStampDiscardedVia).toMatch(/\{module\}/);
+    expect(enUi.jobStampDiscardedVia).toMatch(/\{module\}/);
+    expect(esUi.jobStampDiscardReason).toMatch(/\{reason\}/);
+  });
+
+  it('writes the stamp in the active language, never a literal', async () => {
+    stubErplora({ locale: lang, admin: true, coverage: [], jobs: { discarded: JOBS_DISCARDED } });
+    const el = await mount();
+    const lines = stamps(el, 'sale-2026-08-22-0007').join(' | ');
+    const head = (tpl: string): string => tpl.split('{')[0].trim();
+    expect(lines, `the ${locale} screen is not reading ui.jobStampDiscardedVia`).toContain(
+      head(ui.jobStampDiscardedVia),
+    );
+    expect(lines, `the ${locale} screen is speaking the other language`).not.toContain(
+      head(other.jobStampDiscardedVia),
+    );
+    expect(lines).toContain(moment('2026-08-22T10:05:00Z', lang));
+  });
+
+  it('titles the retired list in the active language', async () => {
+    stubErplora({ locale: lang, admin: true, coverage: [], jobs: { discarded: JOBS_DISCARDED } });
+    const el = await mount();
+    const title = el.shadowRoot.querySelector('.queue-retired-title')?.textContent?.trim();
+    expect(title, `the retired list has no heading in ${locale}`).toBe(ui.queueRetiredTitle);
+    expect(title).not.toBe(other.queueRetiredTitle);
   });
 });
