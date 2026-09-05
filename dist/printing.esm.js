@@ -1364,7 +1364,14 @@ var es_default = {
     errJobCapability: "El permiso de impresi\xF3n no est\xE1 concedido, as\xED que todav\xEDa no se pueden mover trabajos.",
     errJobGoPermissions: "Ir a Permisos",
     errJobForbidden: "Solo quien administra el negocio puede mover trabajos de la cola de impresi\xF3n.",
-    errJobAction: "No se pudo mover el trabajo. Int\xE9ntalo de nuevo en un momento."
+    errJobAction: "No se pudo mover el trabajo. Int\xE9ntalo de nuevo en un momento.",
+    queueRetiredTitle: "Retirados recientemente",
+    jobStatusDiscarded: "Retirado",
+    jobStampDiscarded: "Retirado por {who} \xB7 {when}",
+    jobStampDiscardedVia: "Retirado por {who} desde {module} \xB7 {when}",
+    jobStampDiscardReason: "Motivo: {reason}",
+    jobStampRetried: "Reenviado por {who} \xB7 {when}",
+    jobStampRetriedVia: "Reenviado por {who} desde {module} \xB7 {when}"
   }
 };
 
@@ -1464,7 +1471,14 @@ var en_default = {
     errJobCapability: "Printing permission has not been granted, so jobs cannot be moved yet.",
     errJobGoPermissions: "Go to Permissions",
     errJobForbidden: "Only whoever manages the business can move jobs in the print queue.",
-    errJobAction: "The job could not be moved. Try again in a moment."
+    errJobAction: "The job could not be moved. Try again in a moment.",
+    queueRetiredTitle: "Recently discarded",
+    jobStatusDiscarded: "Discarded",
+    jobStampDiscarded: "Discarded by {who} \xB7 {when}",
+    jobStampDiscardedVia: "Discarded by {who} from {module} \xB7 {when}",
+    jobStampDiscardReason: "Reason: {reason}",
+    jobStampRetried: "Sent again by {who} \xB7 {when}",
+    jobStampRetriedVia: "Sent again by {who} from {module} \xB7 {when}"
   }
 };
 
@@ -1485,6 +1499,8 @@ var PERMISSIONS_ROUTE = "/settings#permissions";
 var QUEUE_REFRESH_MS = 3e4;
 var QUEUE_LIMIT = 100;
 var QUEUE_STATUSES = ["pending", "printing", "dead"];
+var RETIRED_STATUS = "discarded";
+var RETIRED_LIMIT = 20;
 var RETRYABLE_STATUS = "dead";
 var DISCARDABLE_STATUSES = ["pending", "dead"];
 var NOT_REQUEUEABLE = "print.job_not_requeueable";
@@ -1526,6 +1542,7 @@ var ErpPrintingSettings = class extends i3 {
     this.hardwareError = "";
     this.coverage = [];
     this.queue = [];
+    this.retired = [];
     this.queueLoading = false;
     this.queueError = "";
     this.queueLoaded = false;
@@ -1568,6 +1585,12 @@ var ErpPrintingSettings = class extends i3 {
     .queue-job .id { font-family:ui-monospace, monospace; font-size:.8rem; opacity:.7; }
     .queue-job .meta { font-size:.8rem; opacity:.75; white-space:nowrap; }
     .queue-job .badge.st-dead { background:#ffe3e3; color:#c92a2a; }
+    .queue-job .badge.st-discarded { background:#0001; color:#495057; }
+    /* The stamp is an audit line, not the headline: readable, secondary, and it wraps like the
+       rest of the row (a reason somebody typed can be long and a 390 px screen is the floor). */
+    .queue-job .job-stamp { font-size:.8rem; opacity:.75; margin-top:.15rem; overflow-wrap:anywhere; }
+    .queue-job.retired { opacity:.85; }
+    .queue-retired-title { margin:1rem 0 .5rem; font-size:.9rem; opacity:.75; font-weight:600; }
     .queue-job .badge.st-printing { background:#d0ebff; color:#1971c2; }
     /* printing#30 — the two recovery gestures. The row already wraps; the action group wraps too
        and takes the full width so that at 390 px the buttons drop under the job instead of
@@ -1598,6 +1621,7 @@ var ErpPrintingSettings = class extends i3 {
   async loadQueue() {
     this.queueLoading = true;
     try {
+      const retiring = this.canManageQueue;
       const [coverage, ...buckets] = await Promise.all([
         // Both names are written as LITERALS on purpose: ADR-0127 extracts the module's
         // interoperability contract from the call site, and a constant hides the dependency.
@@ -1606,15 +1630,24 @@ var ErpPrintingSettings = class extends i3 {
         erplora().query("hub.print.coverage"),
         ...QUEUE_STATUSES.map(
           (status) => erplora().query("hub.print.jobs", { status, limit: QUEUE_LIMIT })
-        )
+        ),
+        ...retiring ? [
+          erplora().query("hub.print.jobs", {
+            status: RETIRED_STATUS,
+            limit: RETIRED_LIMIT
+          })
+        ] : []
       ]);
       const oldest = (a3, b3) => Date.parse(a3.createdAt) - Date.parse(b3.createdAt);
+      const rows = (v2) => Array.isArray(v2) ? v2 : [];
       this.coverage = Array.isArray(coverage) ? coverage : [];
-      this.queue = buckets.flatMap((rows) => Array.isArray(rows) ? [...rows].sort(oldest) : []);
+      this.queue = buckets.slice(0, QUEUE_STATUSES.length).flatMap((bucket) => [...rows(bucket)].sort(oldest));
+      this.retired = retiring ? rows(buckets[QUEUE_STATUSES.length]) : [];
       this.queueError = "";
       this.queueLoaded = true;
     } catch (e4) {
       const code = codeOf(e4);
+      this.retired = [];
       this.queueError = `${erplora().t(CATALOG, "ui.errQueueLoad")}${code ? ` (${code})` : ""}`;
     } finally {
       this.queueLoading = false;
@@ -1786,7 +1819,8 @@ var ErpPrintingSettings = class extends i3 {
     const keys = {
       pending: "ui.jobPending",
       printing: "ui.jobPrinting",
-      dead: "ui.jobDead"
+      dead: "ui.jobDead",
+      [RETIRED_STATUS]: "ui.jobStatusDiscarded"
     };
     return keys[status] ?? status;
   }
@@ -1928,6 +1962,52 @@ var ErpPrintingSettings = class extends i3 {
     `;
   }
   /**
+   * The moment a gesture happened, in the person's own locale — or `''` for anything that is not
+   * a date. «Invalid Date» painted on an audit line is worse than no line at all.
+   */
+  momentText(iso) {
+    if (!iso) return "";
+    const at = new Date(iso);
+    return Number.isNaN(at.getTime()) ? "" : at.toLocaleString(erplora().locale, { dateStyle: "short", timeStyle: "short" });
+  }
+  /** Who a stamp names: the person, falling back to the principal, never to an empty label. */
+  actor(name, principal) {
+    return (name ?? "").trim() || (principal ?? "").trim();
+  }
+  /**
+   * **The stamp, read back** (hub#1565) — «Retirado por Ana desde printing · 22/8/26, 12:05».
+   *
+   * Whole sentences from the catalog, one per case, instead of gluing fragments together: a
+   * translation is a sentence, and «by» + «from» + a date assembled in source order is how a
+   * screen ends up reading like a telegram in every language but the one it was written in.
+   *
+   * A gesture that never happened paints nothing at all, and neither does one whose stamp did not
+   * travel — a counter session, or a hub older than the fix.
+   */
+  renderJobStamp(j, t3) {
+    const lines = [];
+    const discardedWhen = this.momentText(j.discardedAt);
+    const discardedWho = this.actor(j.discardedByName, j.discardedBy);
+    if (discardedWhen && discardedWho) {
+      const via = (j.discardedByModule ?? "").trim();
+      lines.push(
+        via ? t3("ui.jobStampDiscardedVia", { who: discardedWho, module: via, when: discardedWhen }) : t3("ui.jobStampDiscarded", { who: discardedWho, when: discardedWhen })
+      );
+      const reason = (j.discardReason ?? "").trim();
+      if (reason) lines.push(t3("ui.jobStampDiscardReason", { reason }));
+    }
+    const retriedWhen = this.momentText(j.retriedAt);
+    const retriedWho = this.actor(j.retriedByName, j.retriedBy);
+    if (retriedWhen && retriedWho) {
+      const via = (j.retriedByModule ?? "").trim();
+      lines.push(
+        via ? t3("ui.jobStampRetriedVia", { who: retriedWho, module: via, when: retriedWhen }) : t3("ui.jobStampRetried", { who: retriedWho, when: retriedWhen })
+      );
+    }
+    if (lines.length === 0) return A;
+    return b2`${lines.map((line) => b2`<div class="job-stamp">${line}</div>`)}`;
+  }
+  /**
    * The two gestures, offered only where they can work.
    *
    * A `printing` job gets neither: its lease already covers a host that died, and binning a ticket a
@@ -2017,12 +2097,27 @@ var ErpPrintingSettings = class extends i3 {
                 <div>${this.docLabel(j.documentType)} <span class="badge st-${j.status}">${t3(this.jobStatusKey(j.status))}</span></div>
                 <div class="id">${j.jobId} · ${this.roleLabel(j.role)} · ${t3("ui.jobAge", { age: this.waitText((Date.now() - Date.parse(j.createdAt)) / 1e3, t3) })}</div>
                 ${j.lastError ? b2`<div class="err">${t3("ui.jobLastError", { error: j.lastError })}</div>` : A}
+                ${this.renderJobStamp(j, t3)}
               </div>
               <div class="meta">${t3("ui.jobAttempts", { n: j.attempts })}</div>
               ${this.renderJobActions(j, t3)}
             </div>
           `
     )}
+        ${this.retired.length > 0 ? b2`
+              <h4 class="queue-retired-title">${t3("ui.queueRetiredTitle")}</h4>
+              ${this.retired.map(
+      (j) => b2`
+                  <div class="queue-job retired">
+                    <div class="grow">
+                      <div>${this.docLabel(j.documentType)} <span class="badge st-${j.status}">${t3(this.jobStatusKey(j.status))}</span></div>
+                      <div class="id">${j.jobId} · ${this.roleLabel(j.role)}</div>
+                      ${this.renderJobStamp(j, t3)}
+                    </div>
+                  </div>
+                `
+    )}
+            ` : A}
       </section>
 
       <section>
@@ -2125,6 +2220,9 @@ __decorateClass([
 __decorateClass([
   r5()
 ], ErpPrintingSettings.prototype, "queue", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "retired", 2);
 __decorateClass([
   r5()
 ], ErpPrintingSettings.prototype, "queueLoading", 2);
