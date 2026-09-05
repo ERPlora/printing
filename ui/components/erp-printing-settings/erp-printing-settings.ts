@@ -515,6 +515,35 @@ export class ErpPrintingSettings extends LitElement {
   }
 
   /**
+   * The state of a PRINTER, keyed — `crates/peripherals/src/usb.rs` answers one of these three.
+   *
+   * Separate from `roleStatusKey()` on purpose: that one names how a ROLE is covered, this one
+   * names a device, and Spanish does not even agree on the gender («el rol está Listo» vs «la
+   * impresora está Lista»). One vocabulary borrowed for two meanings drifts the moment either
+   * side gains a state.
+   */
+  private printerStatusKey(status: string): string {
+    const keys: Record<string, string> = {
+      ready: 'ui.printerStatusReady',
+      stopped: 'ui.printerStatusStopped',
+      unknown: 'ui.printerStatusUnknown',
+    };
+    return keys[status] ?? status;
+  }
+
+  /**
+   * The printer state in the person's words, or the raw word for a state this module cannot name.
+   *
+   * The fallback is the point: this module installs into whatever hub is running, and a hub newer
+   * than it can answer a fourth word. Blanking the badge would hide exactly what the person at the
+   * counter reads to choose a printer — the raw word at least says something.
+   */
+  private printerStatusLabel(status: string): string {
+    const key = this.printerStatusKey(status);
+    return key === status ? status : erplora().t(CATALOG, key);
+  }
+
+  /**
    * What to say after a gesture — resolved by CODE, never by the sentence the runtime sent
    * (ADR-0055).
    *
@@ -804,7 +833,7 @@ export class ErpPrintingSettings extends LitElement {
           (p) => html`
             <div class="printer">
               <div class="grow">
-                <div>${p.name} <span class="badge">${p.status}</span></div>
+                <div>${p.name} <span class="badge">${this.printerStatusLabel(p.status)}</span></div>
                 <div class="id">${p.id}${p.mac ? html` · ${p.mac}` : nothing}</div>
               </div>
               <ion-select placeholder=${t('ui.rolePlaceholder')} .value=${this.roleOf(p)} interface="popover"
