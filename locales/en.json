@@ -50,6 +50,7 @@
     "queueWaitingJobs": "Waiting: {waiting}",
     "queueOldest": "oldest has waited {age}",
     "queueLiveHosts": "Printing from {n} device(s).",
+    "queueLiveHostNames": "Printing from: {hosts}.",
     "queueAllClear": "All clear: the queue is empty and {n} device(s) are connected.",
     "queueAllClearNoHost": "Nothing is waiting right now. No print device is connected: new jobs will stay in the queue until one connects.",
     "statusReady": "Ready",
