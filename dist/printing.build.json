@@ -1,7 +1,7 @@
 {
   "file": "dist/printing.esm.js",
-  "sources_sha256": "7956aaf1984451bb4a5efb9fcf3692d3c4eca3b9efd84176804eafd7807b3c7c",
+  "sources_sha256": "d6009f0df964a74a05725f28cdf2d5968b315ec66a07bade3a21c864f4800215",
   "locales_sha256": "0b0b351a024ed71d519859c99b61dd1e83ef805927ca2314c58c7ff2d9fbcb2e",
-  "bundle_sha256": "7bf4e5bdf6fff4fc0a548d0ec62f94e3237d82bd84d458b0e0846d726a0adb87",
-  "built_at": "2026-09-05T14:41:21.408Z"
+  "bundle_sha256": "3ae8a68d38bca155b206e4c151993cfb722ba76a8b5984f32761e59a912809c7",
+  "built_at": "2026-09-11T05:42:25.186Z"
 }

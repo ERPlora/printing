@@ -511,10 +511,33 @@ export class ErpPrintingSettings extends LitElement {
     }
   }
 
+  /**
+   * The envelope the test sheet is printed with (hub#1803).
+   *
+   * It is the SAME envelope every other document carries, with the two fields the renderer knows
+   * how to read: `locale` — the language the paper comes out in (`Locale::from_document`,
+   * hub#1159) — and `business_name` — the header, as on the ticket. Without it the sheet is
+   * rendered from the printer id alone and comes out in English signed with the product's name,
+   * which is what was happening: the ticket printed beside it came out in Spanish under the
+   * shop's own name.
+   *
+   * The name is the FIRST LINE of `receipt_header` — the contract that field already has for the
+   * ticket: first line the name, the rest the address — and it is the sign the shopkeeper typed on
+   * this very screen, never a constant. Empty, the field is left out: the renderer falls back to
+   * the product's name, which is today's sheet.
+   */
+  private testPageEnvelope(): Record<string, unknown> {
+    const businessName = (this.settings.receipt_header ?? '').split('\n')[0].trim();
+    return {
+      locale: erplora().locale,
+      ...(businessName ? { business_name: businessName } : {}),
+    };
+  }
+
   private async test(printer: BridgePrinter): Promise<void> {
     this.hardwareError = '';
     try {
-      await this.peripherals.testPrint(printer.id);
+      await this.peripherals.testPrint(printer.id, this.testPageEnvelope());
     } catch (e) {
       this.hardwareError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errTestPrint');
     }
