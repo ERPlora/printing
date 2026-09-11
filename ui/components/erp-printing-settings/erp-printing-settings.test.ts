@@ -180,3 +180,92 @@ describe('each printer shows its state in the person\'s language (printing#34)',
     }
   });
 });
+
+// ── hub#1803: the sheet «Probar» prints comes out like the rest of the paper ────────────────────
+//
+// It printed «Test Print OK» and «Printer: …» in English, signed «ERPlora», on a hub running in
+// Spanish whose ticket came out of the same printer in Spanish under the shop's own name. The
+// renderer cannot know either one on its own — the test sheet is rendered from a printer id, with
+// no document behind it — so it can only be this screen that sends them.
+//
+// Both fields come from what the hub already holds: the language the shell is running in, and the
+// branding the merchant typed into `receipt_header` on THIS screen (first line = name, the rest is
+// the address — the ticket's own contract for that field). Neither is a constant.
+
+const A_NETWORK_PRINTER: PrinterWire = {
+  id: 'network:192.168.1.50:9100',
+  name: 'Cocina',
+  type: 'network',
+  status: 'ready',
+  paper_width: 80,
+};
+
+type TestPrintCall = { printerId: string; data?: Record<string, unknown> };
+
+function mountRecordingTestPrint(receiptHeader: string, locale = 'es'): TestPrintCall[] {
+  const calls: TestPrintCall[] = [];
+  (globalThis as Record<string, unknown>).erplora = {
+    query: async () => [{ ...SETTINGS, receipt_header: receiptHeader }],
+    command: async () => ({}),
+    peripherals: {
+      detect: async () => ({ online: true, version: '1.0.0' }),
+      discoverPrinters: async () => [A_NETWORK_PRINTER],
+      getDevices: async () => [],
+      testPrint: async (printerId: string, data?: Record<string, unknown>) => {
+        calls.push({ printerId, data });
+      },
+    },
+    locale,
+    t: (catalog: Record<string, { ui: Record<string, string> }>, key: string) => {
+      const [, k] = key.split('.');
+      return catalog[locale]?.ui?.[k] ?? key;
+    },
+  };
+  return calls;
+}
+
+/** Clicks the row's «Probar», by its label — the same button a user reaches for. */
+async function pressTest(el: HTMLElement & { shadowRoot: ShadowRoot }, label: string): Promise<void> {
+  const button = [...el.shadowRoot.querySelectorAll('ion-button')].find(
+    (b) => (b.textContent ?? '').trim() === label,
+  );
+  expect(button, `no «${label}» button on the printer row`).toBeTruthy();
+  (button as HTMLElement).click();
+  await new Promise((r) => setTimeout(r, 0));
+}
+
+describe('the test sheet is asked for in the hub language and under the business name (hub#1803)', () => {
+  it('sends the shell language and the first line of `receipt_header`', async () => {
+    const calls = mountRecordingTestPrint('SALON AURORA SL\nCalle Mayor 1');
+    const el = await montar();
+
+    await pressTest(el, 'Probar');
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].printerId).toBe('network:192.168.1.50:9100');
+    expect(calls[0].data).toEqual({ locale: 'es', business_name: 'SALON AURORA SL' });
+  });
+
+  it('follows the shell into another language rather than pinning one', async () => {
+    // A hardcoded `locale: 'es'` would pass the case above and print Spanish at an English hub —
+    // the same bug pointing the other way, which is exactly what ADR-0055/0199 forbids.
+    const calls = mountRecordingTestPrint('SALON AURORA SL', 'en');
+    const el = await montar();
+
+    await pressTest(el, 'Test');
+
+    expect(calls[0].data).toMatchObject({ locale: 'en' });
+  });
+
+  it('leaves the name out when the merchant never set one, instead of inventing one', async () => {
+    // Empty `receipt_header` is «I have not branded my paper». Sending `business_name: ''` would
+    // head the sheet with a blank line; leaving the field out lets the renderer fall back to the
+    // product name, which is the sheet that prints today.
+    const calls = mountRecordingTestPrint('   ');
+    const el = await montar();
+
+    await pressTest(el, 'Probar');
+
+    expect(calls[0].data).toEqual({ locale: 'es' });
+  });
+});

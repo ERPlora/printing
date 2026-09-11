@@ -511,10 +511,32 @@ export class ErpPrintingSettings extends LitElement {
     }
   }
 
+  /**
+   * El sobre con el que se imprime la hoja de prueba (hub#1803).
+   *
+   * Es el MISMO que lleva cualquier otro documento, con los dos campos que el renderizador sabe
+   * leer: `locale` —el idioma en que sale el papel (`Locale::from_document`, hub#1159)— y
+   * `business_name` —la cabecera, como en el tique—. Sin él, la hoja se renderiza solo a partir
+   * del id de la impresora y sale en inglés firmada con el nombre del producto, que es lo que
+   * pasaba: el tique de al lado salía en español y con el nombre del negocio.
+   *
+   * El nombre es la PRIMERA LÍNEA de `receipt_header` —el contrato que ya tiene ese campo para el
+   * tique: primera línea el nombre, el resto la dirección— y es la marca que el comerciante ha
+   * escrito en esta misma pantalla, nunca una constante. Si está vacío, el campo no se manda: el
+   * renderizador cae en el nombre del producto, que es la hoja de hoy.
+   */
+  private testPageEnvelope(): Record<string, unknown> {
+    const businessName = (this.settings.receipt_header ?? '').split('\n')[0].trim();
+    return {
+      locale: erplora().locale,
+      ...(businessName ? { business_name: businessName } : {}),
+    };
+  }
+
   private async test(printer: BridgePrinter): Promise<void> {
     this.hardwareError = '';
     try {
-      await this.peripherals.testPrint(printer.id);
+      await this.peripherals.testPrint(printer.id, this.testPageEnvelope());
     } catch (e) {
       this.hardwareError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errTestPrint');
     }
