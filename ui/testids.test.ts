@@ -173,8 +173,13 @@ const LITERAL_TESTID = /(?<![:\w-])(?:data-)?testid="([^"]*)"/g;
  * `v-bind:data-testid`) walks in by itself the moment somebody copies a screen from the shell.
  * Teaching three spellings to four regular expressions would be four places to forget one: the
  * module writes ONE form and this rule says so.
+ *
+ * The SEPARATOR is captured for the same reason, and it is the subtler half: HTML allows whitespace
+ * around the `=`, so `data-testid = "x"` paints a hook just like the other one — but the contract
+ * reader (`LITERAL_TESTID`) reads no space and never takes its name down. One spelling means one
+ * spelling, the `=` bare (invoice#77).
  */
-const TESTID_SPELLING = /(?<![\w-])([.?@]|v-bind:|:)?((?:data-)?testid)\s*=\s*(\$\{|"|'|[^\s>])/g;
+const TESTID_SPELLING = /(?<![\w-])([.?@]|v-bind:|:)?((?:data-)?testid)(\s*=\s*)(\$\{|"|'|[^\s>])/g;
 
 /**
  * Any `data-test…` attribute, to tell the hook apart from the variants that look like it and are
@@ -397,11 +402,47 @@ function dataTables(markup: string): Array<{ line: number; open: string }> {
   return found;
 }
 
-/** Carries a hook, be it literal (`data-testid="x"`) or computed (`data-testid=${…}`). */
-const hasTestid = (openTagText: string): boolean => /(?:^|\s)data-testid\s*=/.test(openTagText);
+/**
+ * Carries a hook, in one of the two spellings the rules read: literal (`data-testid="x"`) or
+ * computed (`data-testid=${…}`).
+ *
+ * The `=` has to be bare, and that is the whole point: `data-testid = "x"` with spaces around it is
+ * painted by Lit exactly the same (the HTML parser allows the whitespace) but `LITERAL_TESTID` reads
+ * no space, so a reader that accepted it would call the control hooked while its name never reached
+ * the contract — a LIVE hook nobody declared, which is precisely what renaming is supposed to break.
+ * Measured on this screen: an action added as `data-testid = "printing-queue-purge"` passed all 22
+ * rules. Now it falls by two (coverage and spelling).
+ */
+const hasTestid = (openTagText: string): boolean =>
+  /(?:^|\s)data-testid=(?:"|\$\{)/.test(openTagText);
 
-/** An `<ok-data-table>` with its namespace declared. */
-const hasTableTestid = (openTagText: string): boolean => /(?:^|\s)testid\s*=/.test(openTagText);
+/** An `<ok-data-table>` with its namespace declared, in the one spelling the contract reads. */
+const hasTableTestid = (openTagText: string): boolean => /(?:^|\s)testid="/.test(openTagText);
+
+/**
+ * The ways a chunk of source writes the SAME attribute that are NOT one of the three the rules read.
+ * One reader, so the rule below and the fixtures that pin it can never answer differently — and so
+ * the rule keeps being checked against spellings nobody has typed into this tree yet.
+ */
+function badSpellings(source: string): string[] {
+  const found: string[] = [];
+  TESTID_SPELLING.lastIndex = 0;
+  for (let m = TESTID_SPELLING.exec(source); m; m = TESTID_SPELLING.exec(source)) {
+    const [, prefix, attr, separator, open] = m;
+    const ok =
+      prefix === undefined &&
+      separator === '=' &&
+      (attr === 'data-testid' ? open === '"' || open === '${' : open === '"');
+    if (!ok) found.push(`${prefix ?? ''}${attr}${separator}${open}`);
+  }
+  for (const value of literalTestids(source)) {
+    // `data-testid="${…}"` is painted by Lit just like the unquoted form, but the contract rule
+    // would read it as a literal name — and declare the TEXT of the expression as if it were a
+    // hook. One form only, and this is not it.
+    if (value.includes('${')) found.push(`data-testid="${value}" (quoted binding)`);
+  }
+  return found;
+}
 
 function literalTestids(markup: string): string[] {
   const found: string[] = [];
@@ -566,20 +607,7 @@ describe('data-testid — the printing module UI contract (printing#38)', () => 
   it('4 · a hook is written data-testid="…", data-testid=${…} or testid="…", and no other way', () => {
     const offenders: string[] = [];
     for (const { name, source } of ALL_SOURCES) {
-      TESTID_SPELLING.lastIndex = 0;
-      for (let m = TESTID_SPELLING.exec(source); m; m = TESTID_SPELLING.exec(source)) {
-        const [, prefix, attr, open] = m;
-        const ok =
-          prefix === undefined &&
-          (attr === 'data-testid' ? open === '"' || open === '${' : open === '"');
-        if (!ok) offenders.push(`${name}: ${prefix ?? ''}${attr}=${open}`);
-      }
-      for (const value of literalTestids(source)) {
-        // `data-testid="${…}"` is painted by Lit just like the unquoted form, but the contract rule
-        // would read it as a literal name — and declare the TEXT of the expression as if it were a
-        // hook. One form only, and this is not it.
-        if (value.includes('${')) offenders.push(`${name}: data-testid="${value}" (quoted binding)`);
-      }
+      for (const bad of badSpellings(source)) offenders.push(`${name}: ${bad}`);
     }
     expect(
       offenders,
@@ -710,6 +738,55 @@ describe('the reader underneath the rules reads a LIT open tag, not a JavaScript
     expect(controlsOf(source), 'sweeping the whole file would invent controls nobody paints').toEqual(
       [],
     );
+  });
+
+  it('the spelling rule denies EVERY other way of writing the same attribute', () => {
+    // Held against FIXTURES and not only against the tree: a rule that has only ever seen the one
+    // spelling nobody has mistyped yet is a rule nothing has checked. Each of these is an attribute
+    // Lit paints — or one the readers above cannot read — and none of them is the spelling.
+    for (const fixture of [
+      '<ion-input data-testid = "x"></ion-input>',
+      '<ion-input data-testid= "x"></ion-input>',
+      "<ion-input data-testid='x'></ion-input>",
+      '<ion-input :data-testid="x"></ion-input>',
+      '<ion-input v-bind:data-testid="x"></ion-input>',
+      '<ion-input .data-testid=${x}></ion-input>',
+      '<ion-input ?data-testid=${x}></ion-input>',
+      '<ion-input data-testid=x></ion-input>',
+      '<ion-input data-testid="${x}"></ion-input>',
+      '<ok-data-table testid = "x"></ok-data-table>',
+    ]) {
+      expect(badSpellings(fixture), `this spelling has to be denied: ${fixture}`).not.toEqual([]);
+    }
+    expect(badSpellings('<ion-input data-testid="x"></ion-input>'), 'the fixed form').toEqual([]);
+    expect(badSpellings('<ion-input data-testid=${x}></ion-input>'), 'the Lit form').toEqual([]);
+    expect(badSpellings('<ok-data-table testid="x"></ok-data-table>'), 'the namespace').toEqual([]);
+  });
+
+  it('only the spelling the contract can read counts as a hook for coverage', () => {
+    // The two readers have to agree. `data-testid = "x"` with spaces around the `=` IS painted by
+    // Lit (the HTML parser allows the whitespace), so a reader that accepts it leaves a LIVE hook
+    // whose name `LITERAL_TESTID` never reads: coverage green, contract silent, and renaming that
+    // hook months later breaks nothing here and the QA suite in another repo. Measured on this very
+    // screen: an action added as `data-testid = "printing-queue-purge"` passed all 22 rules.
+    expect(hasTestid('<ion-input data-testid="x">'), 'the fixed form is a hook').toBe(true);
+    expect(hasTestid('<ion-input data-testid=${x}>'), 'the Lit form is a hook').toBe(true);
+    expect(hasTestid('<ion-input :data-testid="x">'), ':data-testid is not one Lit resolves').toBe(
+      false,
+    );
+    expect(hasTestid('<ion-input data-testid = "x">'), 'the contract cannot read it').toBe(false);
+    expect(hasTableTestid('<ok-data-table testid="x">'), 'the namespace is declared').toBe(true);
+    expect(hasTableTestid('<ok-data-table testid = "x">'), 'the contract cannot read it').toBe(
+      false,
+    );
+  });
+
+  it('a hook written with spaces around the = leaves its control reported as unhooked', () => {
+    const source = 'html`<ion-button @click=${() => this.purge()} data-testid = "printing-queue-purge"></ion-button>`';
+    expect(
+      unhooked(source),
+      'it paints, so it has to fall LOUD here too and not only in the spelling rule',
+    ).toEqual(['<ion-button> line 1']);
   });
 
   it('an astral character above the markup does not shift what the reader sees', () => {
