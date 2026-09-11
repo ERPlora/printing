@@ -748,10 +748,10 @@ export class ErpPrintingSettings extends LitElement {
     const { key, params } = this.noticeSpeech(notice);
     const refused = notice.kind === 'refused';
     return html`
-      <p class="job-notice ${refused ? 'err' : 'ok'}">
+      <p data-testid="printing-queue-notice" class="job-notice ${refused ? 'err' : 'ok'}">
         ${t(key, params)}
         ${notice.code === CAPABILITY_DENIED
-          ? html`<ion-button class="job-notice-permissions" size="small" fill="outline"
+          ? html`<ion-button data-testid="printing-queue-notice-permissions" class="job-notice-permissions" size="small" fill="outline"
               @click=${() => this.go(PERMISSIONS_ROUTE)}>${t('ui.errJobGoPermissions')}</ion-button>`
           : nothing}
       </p>
@@ -831,17 +831,17 @@ export class ErpPrintingSettings extends LitElement {
     const busy = this.jobBusyId === j.jobId;
     if (this.discardingId === j.jobId) {
       return html`
-        <div class="job-actions job-discard">
+        <div data-testid=${`printing-job-${j.jobId}-discard-form`} class="job-actions job-discard">
           <span class="grow">${t('ui.jobDiscardTitle')}</span>
-          <ion-input class="job-discard-reason grow" mode="md" fill="outline" label-placement="floating"
+          <ion-input data-testid=${`printing-job-${j.jobId}-discard-reason`} class="job-discard-reason grow" mode="md" fill="outline" label-placement="floating"
             label=${t('ui.jobDiscardReason')} .value=${this.discardReason}
             @ionInput=${(e: Event) => {
               const detail = (e as CustomEvent<{ value?: string | null }>).detail;
               this.discardReason = detail?.value ?? (e.target as HTMLInputElement).value ?? '';
             }}></ion-input>
-          <ion-button class="job-discard-confirm" size="small" color="danger" ?disabled=${busy}
+          <ion-button data-testid=${`printing-job-${j.jobId}-discard-confirm`} class="job-discard-confirm" size="small" color="danger" ?disabled=${busy}
             @click=${() => void this.confirmDiscard(j.jobId)}>${t('ui.jobDiscardConfirm')}</ion-button>
-          <ion-button class="job-discard-cancel" size="small" fill="outline"
+          <ion-button data-testid=${`printing-job-${j.jobId}-discard-cancel`} class="job-discard-cancel" size="small" fill="outline"
             @click=${() => this.cancelDiscard()}>${t('ui.jobCancel')}</ion-button>
         </div>
       `;
@@ -849,11 +849,11 @@ export class ErpPrintingSettings extends LitElement {
     return html`
       <div class="job-actions">
         ${canRetry
-          ? html`<ion-button class="job-action-retry" size="small" fill="outline" ?disabled=${busy}
+          ? html`<ion-button data-testid=${`printing-job-${j.jobId}-retry`} class="job-action-retry" size="small" fill="outline" ?disabled=${busy}
               @click=${() => void this.retryJob(j.jobId)}>${t('ui.jobRetry')}</ion-button>`
           : nothing}
         ${canDiscard
-          ? html`<ion-button class="job-action-discard" size="small" fill="outline" ?disabled=${busy}
+          ? html`<ion-button data-testid=${`printing-job-${j.jobId}-discard`} class="job-action-discard" size="small" fill="outline" ?disabled=${busy}
               @click=${() => this.openDiscard(j.jobId)}>${t('ui.jobDiscard')}</ion-button>`
           : nothing}
       </div>
@@ -870,19 +870,19 @@ export class ErpPrintingSettings extends LitElement {
       <section>
         <div class="row">
           <h3 style="margin:0">${t('ui.queueTitle')}</h3>
-          <ion-button class="queue-refresh" size="small" fill="outline" ?disabled=${this.queueLoading}
+          <ion-button data-testid="printing-queue-refresh" class="queue-refresh" size="small" fill="outline" ?disabled=${this.queueLoading}
             @click=${() => void this.loadQueue()}>
             ${this.queueLoading ? t('ui.queueRefreshing') : t('ui.queueRefresh')}
           </ion-button>
         </div>
-        ${this.queueError ? html`<p class="err">${this.queueError}</p>` : nothing}
+        ${this.queueError ? html`<p data-testid="printing-queue-error" class="err">${this.queueError}</p>` : nothing}
         ${this.renderJobNotice(t)}
         ${this.queueLoaded && !this.queueError
           ? this.coverage
               .filter((c) => c.undrained)
               .map(
                 (c) => html`
-                  <div class="queue-alert">
+                  <div data-testid=${`printing-queue-alert-${c.role}`} class="queue-alert">
                     ${t('ui.queueAlertWaiting', {
                       waiting: c.waiting,
                       role: this.roleLabel(c.role),
@@ -895,14 +895,14 @@ export class ErpPrintingSettings extends LitElement {
           : nothing}
         ${this.queueLoaded && !this.queueError && this.queue.length === 0
           ? this.liveHostCount > 0
-            ? html`<p class="ok">${t('ui.queueAllClear', { n: this.liveHostCount })}</p>`
-            : html`<p class="muted">${t('ui.queueAllClearNoHost')}</p>`
+            ? html`<p data-testid="printing-queue-clear" class="ok">${t('ui.queueAllClear', { n: this.liveHostCount })}</p>`
+            : html`<p data-testid="printing-queue-clear-no-host" class="muted">${t('ui.queueAllClearNoHost')}</p>`
           : nothing}
         <div class="queue-roles">
           ${this.coverage.map((c) => {
             const status = classifyCoverage(c);
             return html`
-              <div class="queue-role">
+              <div data-testid=${`printing-queue-role-${c.role}`} class="queue-role">
                 <div><span class="queue-role-status ${status}">${t(this.roleStatusKey(status))}</span></div>
                 <div><strong>${this.roleLabel(c.role)}</strong></div>
                 ${c.waiting > 0
@@ -917,11 +917,11 @@ export class ErpPrintingSettings extends LitElement {
         </div>
         ${this.queue.map(
           (j) => html`
-            <div class="queue-job">
+            <div data-testid=${`printing-job-${j.jobId}`} class="queue-job">
               <div class="grow">
-                <div>${this.docLabel(j.documentType)} <span class="badge st-${j.status}">${t(this.jobStatusKey(j.status))}</span></div>
+                <div>${this.docLabel(j.documentType)} <span data-testid=${`printing-job-${j.jobId}-status`} class="badge st-${j.status}">${t(this.jobStatusKey(j.status))}</span></div>
                 <div class="id">${j.jobId} · ${this.roleLabel(j.role)} · ${t('ui.jobAge', { age: this.waitText((Date.now() - Date.parse(j.createdAt)) / 1000, t) })}</div>
-                ${j.lastError ? html`<div class="err">${t('ui.jobLastError', { error: j.lastError })}</div>` : nothing}
+                ${j.lastError ? html`<div data-testid=${`printing-job-${j.jobId}-error`} class="err">${t('ui.jobLastError', { error: j.lastError })}</div>` : nothing}
                 ${this.renderJobStamp(j, t)}
               </div>
               <div class="meta">${t('ui.jobAttempts', { n: j.attempts })}</div>
@@ -934,9 +934,9 @@ export class ErpPrintingSettings extends LitElement {
               <h4 class="queue-retired-title">${t('ui.queueRetiredTitle')}</h4>
               ${this.retired.map(
                 (j) => html`
-                  <div class="queue-job retired">
+                  <div data-testid=${`printing-retired-${j.jobId}`} class="queue-job retired">
                     <div class="grow">
-                      <div>${this.docLabel(j.documentType)} <span class="badge st-${j.status}">${t(this.jobStatusKey(j.status))}</span></div>
+                      <div>${this.docLabel(j.documentType)} <span data-testid=${`printing-retired-${j.jobId}-status`} class="badge st-${j.status}">${t(this.jobStatusKey(j.status))}</span></div>
                       <div class="id">${j.jobId} · ${this.roleLabel(j.role)}</div>
                       ${this.renderJobStamp(j, t)}
                     </div>
@@ -950,16 +950,16 @@ export class ErpPrintingSettings extends LitElement {
       <section>
         <h3>${t('ui.ticketSettings')}</h3>
         <div class="field">
-          <ion-input mode="md" fill="outline" label-placement="floating" label=${t('ui.receiptHeader')} .value=${s.receipt_header} placeholder=${t('ui.receiptHeaderPlaceholder')}
+          <ion-input data-testid="printing-receipt-header" mode="md" fill="outline" label-placement="floating" label=${t('ui.receiptHeader')} .value=${s.receipt_header} placeholder=${t('ui.receiptHeaderPlaceholder')}
             @ionInput=${(e: Event) => this.set('receipt_header', (e.target as HTMLInputElement).value)}></ion-input>
         </div>
         <div class="field">
-          <ion-input mode="md" fill="outline" label-placement="floating" label=${t('ui.receiptFooter')} .value=${s.receipt_footer} placeholder=${t('ui.receiptFooterPlaceholder')}
+          <ion-input data-testid="printing-receipt-footer" mode="md" fill="outline" label-placement="floating" label=${t('ui.receiptFooter')} .value=${s.receipt_footer} placeholder=${t('ui.receiptFooterPlaceholder')}
             @ionInput=${(e: Event) => this.set('receipt_footer', (e.target as HTMLInputElement).value)}></ion-input>
         </div>
         <div class="row">
           <label>${t('ui.paperWidth')}</label>
-          <ion-select .value=${String(s.paper_width)} interface="popover"
+          <ion-select data-testid="printing-paper-width" .value=${String(s.paper_width)} interface="popover"
             @ionChange=${(e: Event) => this.set('paper_width', Number((e.target as HTMLInputElement).value))}>
             <ion-select-option value="80">80 mm</ion-select-option>
             <ion-select-option value="58">58 mm</ion-select-option>
@@ -967,47 +967,47 @@ export class ErpPrintingSettings extends LitElement {
         </div>
         <div class="row">
           <label>${t('ui.autoPrintOnSale')}</label>
-          <ion-toggle ?checked=${s.auto_print_on_sale === 1}
+          <ion-toggle data-testid="printing-auto-print" ?checked=${s.auto_print_on_sale === 1}
             @ionChange=${(e: Event) => this.set('auto_print_on_sale', (e.target as HTMLInputElement).checked ? 1 : 0)}></ion-toggle>
         </div>
         <div class="row">
           <label>${t('ui.openDrawerOnSale')}</label>
-          <ion-toggle ?checked=${s.open_drawer_on_sale === 1}
+          <ion-toggle data-testid="printing-open-drawer" ?checked=${s.open_drawer_on_sale === 1}
             @ionChange=${(e: Event) => this.set('open_drawer_on_sale', (e.target as HTMLInputElement).checked ? 1 : 0)}></ion-toggle>
         </div>
-        <ion-button size="small" ?disabled=${this.saving} @click=${() => this.saveSettings()}>
+        <ion-button data-testid="printing-settings-save" size="small" ?disabled=${this.saving} @click=${() => this.saveSettings()}>
           ${this.saving ? t('ui.saving') : t('ui.saveSettings')}
         </ion-button>
-        ${this.saved ? html`<span class="ok"> ${t('ui.saved')}</span>` : nothing}
-        ${this.error ? html`<p class="err">${this.error}</p>` : nothing}
+        ${this.saved ? html`<span data-testid="printing-settings-saved" class="ok"> ${t('ui.saved')}</span>` : nothing}
+        ${this.error ? html`<p data-testid="printing-settings-error" class="err">${this.error}</p>` : nothing}
       </section>
 
       <section>
         <div class="row">
           <h3 style="margin:0">${t('ui.networkPrinters')}</h3>
-          <ion-button size="small" fill="outline" ?disabled=${this.scanning} @click=${() => this.refreshHardware()}>
+          <ion-button data-testid="printing-hardware-rescan" size="small" fill="outline" ?disabled=${this.scanning} @click=${() => this.refreshHardware()}>
             ${this.scanning ? t('ui.scanning') : t('ui.rescan')}
           </ion-button>
         </div>
         ${this.hardwareOnline
-          ? html`<p class="muted">${t('ui.printerReady')}${this.appVersion ? html` · v${this.appVersion}` : nothing}.</p>`
-          : html`<p class="err">${t('ui.hardwareUnavailable')}</p>`}
-        ${this.hardwareError ? html`<p class="err">${this.hardwareError}</p>` : nothing}
+          ? html`<p data-testid="printing-hardware-ready" class="muted">${t('ui.printerReady')}${this.appVersion ? html` · v${this.appVersion}` : nothing}.</p>`
+          : html`<p data-testid="printing-hardware-unavailable" class="err">${t('ui.hardwareUnavailable')}</p>`}
+        ${this.hardwareError ? html`<p data-testid="printing-hardware-error" class="err">${this.hardwareError}</p>` : nothing}
         ${this.hardwareOnline && this.printers.length === 0 && !this.scanning
-          ? html`<p class="muted">${t('ui.noPrintersFound')}</p>`
+          ? html`<p data-testid="printing-hardware-empty" class="muted">${t('ui.noPrintersFound')}</p>`
           : nothing}
         ${this.printers.map(
           (p) => html`
-            <div class="printer">
+            <div data-testid=${`printing-printer-${p.id}`} class="printer">
               <div class="grow">
                 <div>${p.name} <span class="badge">${this.printerStatusLabel(p.status)}</span></div>
                 <div class="id">${p.id}${p.mac ? html` · ${p.mac}` : nothing}</div>
               </div>
-              <ion-select placeholder=${t('ui.rolePlaceholder')} .value=${this.roleOf(p)} interface="popover"
+              <ion-select data-testid=${`printing-printer-${p.id}-role`} placeholder=${t('ui.rolePlaceholder')} .value=${this.roleOf(p)} interface="popover"
                 @ionChange=${(e: Event) => this.assignRole(p, (e.target as HTMLInputElement).value)}>
                 ${ROLES.map((r) => html`<ion-select-option value=${r}>${this.roleLabel(r)}</ion-select-option>`)}
               </ion-select>
-              <ion-button size="small" fill="outline" @click=${() => this.test(p)}>${t('ui.test')}</ion-button>
+              <ion-button data-testid=${`printing-printer-${p.id}-test`} size="small" fill="outline" @click=${() => this.test(p)}>${t('ui.test')}</ion-button>
             </div>
           `,
         )}
