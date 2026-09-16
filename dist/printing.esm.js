@@ -1317,7 +1317,8 @@ var es_default = {
     queueRefresh: "Refrescar",
     queueRefreshing: "Refrescando\u2026",
     queueAlertWaiting: "{waiting} trabajo(s) de impresi\xF3n de {role} llevan {age} esperando.",
-    queueNoDevice: "Ning\xFAn dispositivo de este rol est\xE1 conectado: instala la app de ERPlora en el dispositivo conectado a la impresora y abre tu negocio desde ah\xED.",
+    queueNoDeviceInApp: "Ning\xFAn dispositivo cubre todav\xEDa este rol: asigna este rol a una impresora de la lista de abajo y este dispositivo lo imprimir\xE1.",
+    queueNoDeviceInBrowser: "Ning\xFAn dispositivo de este rol est\xE1 conectado: instala la app de ERPlora en el dispositivo conectado a la impresora y abre tu negocio desde ah\xED.",
     queueWaitingJobs: "En cola: {waiting}",
     queueOldest: "el m\xE1s antiguo lleva {age}",
     queueLiveHosts: "Imprime desde {n} dispositivo(s).",
@@ -1424,7 +1425,8 @@ var en_default = {
     queueRefresh: "Refresh",
     queueRefreshing: "Refreshing\u2026",
     queueAlertWaiting: "{waiting} print job(s) for {role} have been waiting {age}.",
-    queueNoDevice: "No device for this role is connected: install the ERPlora app on the device that is connected to the printer and open your business from there.",
+    queueNoDeviceInApp: "No device is covering this role yet: give this role to a printer in the list below and this device will print it.",
+    queueNoDeviceInBrowser: "No device for this role is connected: install the ERPlora app on the device that is connected to the printer and open your business from there.",
     queueWaitingJobs: "Waiting: {waiting}",
     queueOldest: "oldest has waited {age}",
     queueLiveHosts: "Printing from {n} device(s).",
@@ -1515,6 +1517,9 @@ function codeOf(e4) {
 function classifyCoverage(c4) {
   if (c4.liveHosts > 0) return "ready";
   return c4.waiting > 0 ? "stalled" : "unattended";
+}
+function queueNoDeviceKey(inInstalledApp) {
+  return inInstalledApp ? "ui.queueNoDeviceInApp" : "ui.queueNoDeviceInBrowser";
 }
 function formatWait(seconds) {
   const s4 = Math.max(0, Math.floor(seconds));
@@ -2094,7 +2099,7 @@ var ErpPrintingSettings = class extends i3 {
         role: this.roleLabel(c4.role),
         age: this.waitText(c4.waitingSeconds, t3)
       })}
-                    ${t3("ui.queueNoDevice")}
+                    ${t3(queueNoDeviceKey(this.hardwareOnline))}
                   </div>
                 `
     ) : A}
@@ -2269,5 +2274,6 @@ __decorateClass([
 define("erp-printing-settings", ErpPrintingSettings);
 export {
   ErpPrintingSettings,
-  formatWait
+  formatWait,
+  queueNoDeviceKey
 };

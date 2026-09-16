@@ -206,6 +206,31 @@ function classifyCoverage(c: CoverageWire): RoleStatus {
   return c.waiting > 0 ? 'stalled' : 'unattended';
 }
 
+/**
+ * The sentence that closes the stuck-queue alarm, for the surface the person is standing on
+ * (printing#37).
+ *
+ * There used to be one sentence for everybody and it said «install the ERPlora app on the device
+ * that is connected to the printer». Most of the time this screen is read FROM INSIDE that app, on
+ * the counter tablet — so it asked the person to install the application they were already using.
+ * A step that is already done is a dead end: they do it, nothing changes, and the screen repeats
+ * itself.
+ *
+ * Criterion COPIED from the hub, which solved this for the setup steps:
+ * `printerSetupStepKeys(inInstalledApp)` (`apps/web/src/lib/system-health.ts`) drops «download»
+ * and «install» on the surface where they are already behind the user. Here the pair is a sentence
+ * instead of a list, but the rule is the same one.
+ *
+ * The surface signal is `erplora.peripherals.detect().online` — the only one a module is given
+ * (`contracts/kernel/sdk.d.ts` has no `isTauri`), and the one this screen already trusts to choose
+ * between `printerReady` and `hardwareUnavailable`: a plain browser gets the shell's
+ * `UnavailableBridgeTransport`, which always answers `{online:false}`. When in doubt it falls to
+ * the browser sentence, which is the one that was always shown.
+ */
+export function queueNoDeviceKey(inInstalledApp: boolean): string {
+  return inInstalledApp ? 'ui.queueNoDeviceInApp' : 'ui.queueNoDeviceInBrowser';
+}
+
 /** Seconds → `{value, unit}` for i18n: 1757 → 29 min, 4500 → 1 h. Never re-derives “stuck”. */
 export function formatWait(seconds: number): { value: number; unit: string } {
   const s = Math.max(0, Math.floor(seconds));
@@ -888,7 +913,7 @@ export class ErpPrintingSettings extends LitElement {
                       role: this.roleLabel(c.role),
                       age: this.waitText(c.waitingSeconds, t),
                     })}
-                    ${t('ui.queueNoDevice')}
+                    ${t(queueNoDeviceKey(this.hardwareOnline))}
                   </div>
                 `,
               )
