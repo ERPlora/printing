@@ -142,6 +142,12 @@ interface QueueDouble {
   admin?: boolean;
   /** The shell's active language. Defaults to `es`; the parity tests mount BOTH. */
   locale?: 'es' | 'en';
+  /**
+   * The surface the screen is standing on (printing#37). `peripherals.detect()` is the only
+   * signal a module has: in a plain browser the shell injects `UnavailableBridgeTransport`, which
+   * always answers `{online:false}`; inside the installed app the Tauri transport answers `true`.
+   */
+  hardwareOnline?: boolean;
   retry?: (jobId: string) => Promise<unknown>;
   discard?: (jobId: string, reason?: string) => Promise<unknown>;
 }
@@ -186,7 +192,10 @@ function stubErplora(opts: QueueDouble = {}): Spies {
     forModule,
     hasPermission: (perm: string) => (opts.admin ?? true) && perm === 'hub.administer',
     peripherals: {
-      detect: async () => ({ online: false, version: undefined }),
+      detect: async () => ({
+        online: opts.hardwareOnline ?? false,
+        version: opts.hardwareOnline ? '0.1.21' : undefined,
+      }),
       discoverPrinters: async () => [],
       getDevices: async () => [],
     },
@@ -326,6 +335,61 @@ describe('stuck queue: the screen says so (printing#28)', () => {
     const el = await mount();
     const job = el.shadowRoot.querySelector('.queue-job');
     expect(job?.textContent ?? '').not.toMatch(/error/i);
+  });
+});
+
+// ── Whose homework is it? (printing#37) ───────────────────────────────────────────────────────
+//
+// The alarm used to end in ONE sentence for everybody: «install the ERPlora app on the device that
+// is connected to the printer». Most of the time this screen is read FROM INSIDE that app, on the
+// counter tablet — so it asked the person to install the application they were holding. They do it,
+// it is already done, and the screen keeps saying the same thing: a dead end.
+//
+// The criterion is COPIED from the hub, which already solved this exact problem for the setup
+// steps: `printerSetupStepKeys(inInstalledApp)` in `apps/web/src/lib/system-health.ts` drops the
+// «download it / install it» steps on the surface where they are already done. Here the pair is a
+// sentence instead of a list, and the surface signal is the one a module is allowed to ask for:
+// `erplora.peripherals.detect().online` — the same one this screen already trusts to choose
+// between `printerReady` and `hardwareUnavailable` two sections below.
+
+describe('the alarm tells the person what is left to do ON THEIR surface (printing#37)', () => {
+  it('inside the installed app it does NOT ask to install the app', async () => {
+    stubErplora({ hardwareOnline: true });
+    const el = await mount();
+    const alarm = el.shadowRoot.querySelector('.queue-alert');
+    expect(alarm, 'no alarm row is painted for undrained coverage').toBeTruthy();
+    expect(alarm?.textContent ?? '').toContain(esUi.queueNoDeviceInApp);
+    expect(alarm?.textContent ?? '').not.toContain(esUi.queueNoDeviceInBrowser);
+  });
+
+  it('in a plain browser it DOES, because there the app is genuinely missing', async () => {
+    stubErplora({ hardwareOnline: false });
+    const el = await mount();
+    const alarm = el.shadowRoot.querySelector('.queue-alert');
+    expect(alarm?.textContent ?? '').toContain(esUi.queueNoDeviceInBrowser);
+    expect(alarm?.textContent ?? '').not.toContain(esUi.queueNoDeviceInApp);
+  });
+
+  it('the in-app sentence never sends anyone to install what they are already running', () => {
+    // The defect itself, pinned on the STRING: whoever re-points the in-app branch at an
+    // «install the app» sentence puts printing#37 straight back on screen.
+    expect(enUi.queueNoDeviceInApp).not.toMatch(/install/i);
+    expect(esUi.queueNoDeviceInApp).not.toMatch(/instala/i);
+    expect(enUi.queueNoDeviceInBrowser).toMatch(/install/i);
+    expect(esUi.queueNoDeviceInBrowser).toMatch(/instala/i);
+  });
+
+  it('picks the key by surface, and the two are not the same sentence', async () => {
+    const { queueNoDeviceKey } = await import('./erp-printing-settings');
+    expect(queueNoDeviceKey(true)).toBe('ui.queueNoDeviceInApp');
+    expect(queueNoDeviceKey(false)).toBe('ui.queueNoDeviceInBrowser');
+    expect(esUi.queueNoDeviceInApp).not.toBe(esUi.queueNoDeviceInBrowser);
+    expect(enUi.queueNoDeviceInApp).not.toBe(enUi.queueNoDeviceInBrowser);
+  });
+
+  it('the retired single key is gone from both catalogs, so no surface can fall back to it', () => {
+    expect(esUi.queueNoDevice, 'ui.queueNoDevice survived the split').toBeUndefined();
+    expect(enUi.queueNoDevice, 'ui.queueNoDevice survived the split').toBeUndefined();
   });
 });
 
@@ -726,7 +790,8 @@ describe('catalog parity for the queue strings (en source of truth, ADR-0055/019
   it('every queue key exists in both languages', () => {
     const keys = [
       'queueTitle', 'queueRefresh', 'queueRefreshing', 'queueAllClear', 'queueAllClearNoHost',
-      'queueAlertWaiting', 'queueNoDevice', 'queueWaitingJobs', 'queueOldest', 'queueLiveHosts',
+      'queueAlertWaiting', 'queueNoDeviceInApp', 'queueNoDeviceInBrowser',
+      'queueWaitingJobs', 'queueOldest', 'queueLiveHosts',
       'queueLiveHostNames',
       'statusReady', 'statusStalled', 'statusUnattended',
       'jobPending', 'jobPrinting', 'jobDead', 'jobAttempts', 'jobLastError', 'jobAge',
