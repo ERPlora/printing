@@ -1,7 +1,7 @@
 {
   "name": "@erplora/module-printing",
   "private": true,
-  "version": "0.1.22",
+  "version": "0.1.23",
   "type": "module",
   "description": "Módulo printing de ERPlora (manifest declarativo + Web Component Lit). Se compila con el toolkit."
 }
