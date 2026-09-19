@@ -191,7 +191,9 @@ def check_soft_deleted_row_is_revived(db):
             f"UPDATE printing_settings SET is_deleted = 1, deleted_at = '2026-08-20T09:06:00+00:00' WHERE hub_id = {literal(HUB)}",
         ],
     )
-    if settings_get(db):
+    # Since printing#42 `settings.get` always answers one row (the defaults when nothing live is
+    # stored), so "invisible" means the soft-deleted values do not come back — not zero rows.
+    if any(r.get("receipt_header") == "Bar Pepe SL" for r in settings_get(db)):
         return [
             "the fixture is wrong: a soft-deleted singleton is still visible to `settings.get`"
         ]

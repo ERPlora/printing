@@ -91,6 +91,10 @@ screen-only never goes to paper.
 (ADR-0144). Route by category in `kitchen` → **Stations**, which does apply them (sales#12,
 kitchen#32). Your old rows are still in `printing_routing`, unreachable, and were not destroyed.
 
+**"A new business does not print on sale until I press Save."** Fixed in printing#42: the settings
+now answer their defaults before the first Save, so auto-print on sale works from the first sale. On
+an older version, pressing Save once on the Printers screen is the workaround.
+
 **"I save the settings and the form comes back empty."** Fixed in printing#25: the save now revives a
 soft-deleted settings row. If you are on an older version, that state also made the `printing.setup`
 checklist item impossible to tick.
