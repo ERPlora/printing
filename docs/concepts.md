@@ -74,6 +74,14 @@ the capability the old tab promised exists — in the right place.
 Both are counter actions and both are granted to an employee. What an employee **cannot** do is
 change the settings — that needs `printing.manage_settings`.
 
+## The settings exist before the first Save
+
+A new hub has no stored settings until somebody presses Save on the Printers screen, but reading
+them still answers one set: the defaults — auto-print on sale **on**, drawer off, 80 mm, empty
+header and footer. What the screen shows is what the till obeys, so the first sale of a new business
+already prints its receipt (printing#42). Before that fix the screen showed auto-print on while the
+till read nothing and printed nothing, silently, until a blank Save.
+
 ## Saving the settings brings them back
 
 The settings are one row per hub. If that row ever ends up soft-deleted — an import, a reset, some

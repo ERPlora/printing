@@ -28,8 +28,9 @@ Everything that can still go wrong here is SQL semantics, which is why it needs 
   * The declared column has to come back. A `configured_when` field the query does not return is not
     an error on the hub, it is a missing value — and a missing value reads as "not configured"
     forever, so the checklist would nag about a receipt that is already set up.
-  * No row is an answer, not a gap (ADR-0063): a brand-new hub has no `printing_settings` row at
-    all, and that has to read as pending.
+  * A brand-new hub has no `printing_settings` row at all, and that has to read as pending. Since
+    printing#42 the query answers ONE row even then — the table's defaults, so the till prints what
+    the screen shows — and that row carries an empty header, which is exactly what keeps it pending.
   * Soft-delete and `hub_id` scoping are part of the row contract (§2.5). A deleted row, or another
     hub's row, must not tick this hub's item.
 
@@ -216,16 +217,18 @@ def run() -> None:
     apply_migrations()
 
     # 1. A brand-new hub: nobody has opened the Printers screen, so there is no singleton at all.
-    #    The query has to RUN (an error would drop the item entirely, §5 best-effort) and answer
-    #    with no rows, which ADR-0063 reads as pending. This is day one of every hub.
+    #    The query has to RUN (an error would drop the item entirely, §5 best-effort). Since
+    #    printing#42 it answers ONE row with the table's defaults (so the till's print-on-sale reads
+    #    the same settings the screen shows), and that row's header is empty — so the item is still
+    #    pending. This is day one of every hub.
+    rows = run_setup_query(setup)
+    check("a hub that never saved printing settings answers one row", 1, len(rows))
     check(
-        "a hub that never saved printing settings has no row",
-        0,
-        len(run_setup_query(setup)),
+        "…whose header is the empty default",
+        "",
+        rows[0].get("receipt_header") if rows else None,
     )
-    check(
-        "no row is NOT configured", False, is_configured(run_setup_query(setup), checks)
-    )
+    check("a hub that never saved is NOT configured", False, is_configured(rows, checks))
 
     # 2. The regression this item is for: the screen saved with its defaults. The row exists — so
     #    "there are settings" would tick — but the header is `''`, and an empty header makes the
