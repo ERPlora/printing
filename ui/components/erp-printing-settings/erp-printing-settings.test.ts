@@ -202,10 +202,27 @@ const A_NETWORK_PRINTER: PrinterWire = {
 
 type TestPrintCall = { printerId: string; data?: Record<string, unknown> };
 
+/**
+ * `receiptHeader` is the TILL's (`sales.pos_settings.get`), which is where the ticket takes its
+ * name since hub#1921 — and this module's own `receipt_header` is deliberately left at the value
+ * no paper reads (printing#44). A stub that answered every door with the same object would pass
+ * whichever of the two the screen read, which is the bug this pins.
+ */
 function mountRecordingTestPrint(receiptHeader: string, locale = 'es'): TestPrintCall[] {
   const calls: TestPrintCall[] = [];
   (globalThis as Record<string, unknown>).erplora = {
-    query: async () => [{ ...SETTINGS, receipt_header: receiptHeader }],
+    query: async (name: string) => {
+      if (name === 'printing.settings.get') return [{ ...SETTINGS, receipt_header: 'NOT THE TICKET’S NAME' }];
+      return [];
+    },
+    // The receipt is an OPTIONAL integration for this module (ADR-0127): it reads it through the
+    // optional door, so the bench answers there and NOT on `query`.
+    queryOptional: async (name: string) => {
+      if (name === 'sales.pos_settings.get') return [{ receipt_header: receiptHeader, receipt_footer: '' }];
+      if (name === 'sales.business.get') return [];
+      return [];
+    },
+    commandOptional: async () => ({}),
     command: async () => ({}),
     peripherals: {
       detect: async () => ({ online: true, version: '1.0.0' }),

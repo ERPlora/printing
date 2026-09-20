@@ -9,10 +9,13 @@ index over `hub_id` — not a partial one. So a row with `is_deleted = 1` keeps 
 writes every field… and leaves `is_deleted` at 1.
 
 `queries/settings_get.sql` filters `is_deleted = 0`, so the row that was just written is invisible.
-The merchant fills in the receipt header, presses Save, gets a success, reloads and finds the form
-empty. And because the onboarding item `printing.setup` is decided by that same query
-(`configured_when: receipt_header truthy`), the checklist item becomes **impossible to tick** — no
-matter how many times they press Save.
+The merchant sets the paper width, presses Save, gets a success, reloads and finds the form back on
+the defaults — with no way out of the state from inside the product, however many times Save is
+pressed.
+
+(The witness used to be `receipt_header`. Since printing#44 this door does not write it — the
+receipt text is the till's, `sales.pos_settings.get` — so what is round-tripped here is what the
+door still owns: the paper width and the two switches.)
 
 Its twin `commands/routing_upsert.sql` already revived (`is_deleted = 0, deleted_at = NULL`) in its
 `DO UPDATE`. This one did not, and the difference was not a decision — it was an omission.
@@ -143,7 +146,6 @@ def raw_row(db, hub=HUB):
 
 
 PAYLOAD = {
-    "receipt_footer": "Thank you",
     "paper_width": 80,
     "auto_print_on_sale": 1,
     "open_drawer_on_sale": 0,
@@ -152,11 +154,13 @@ PAYLOAD = {
 
 
 def check_first_save_inserts(db):
+    # 58 mm is the OPPOSITE of the column default: a save that wrote nothing would read as 80 and
+    # pass a check made against the default.
     run_command(
-        db, HUB, "s1", "2026-08-20T09:00:00+00:00", receipt_header="Bar Pepe", **PAYLOAD
+        db, HUB, "s1", "2026-08-20T09:00:00+00:00", **{**PAYLOAD, "paper_width": 58}
     )
     rows = settings_get(db)
-    if len(rows) != 1 or rows[0]["receipt_header"] != "Bar Pepe":
+    if len(rows) != 1 or rows[0]["paper_width"] != 58:
         return [f"the first save did not land: `{QUERY}` answers {rows}"]
     return []
 
@@ -167,17 +171,16 @@ def check_second_save_updates(db):
         HUB,
         "s2",
         "2026-08-20T09:05:00+00:00",
-        receipt_header="Bar Pepe SL",
-        **PAYLOAD,
+        **{**PAYLOAD, "paper_width": 58, "auto_print_on_sale": 0},
     )
     rows = settings_get(db)
     if len(rows) != 1:
         return [
             f"the singleton stopped being a singleton: {len(rows)} rows after a second save"
         ]
-    if rows[0]["receipt_header"] != "Bar Pepe SL":
+    if rows[0]["auto_print_on_sale"] != 0:
         return [
-            f"the second save did not update: header is {rows[0]['receipt_header']!r}"
+            f"the second save did not update: auto-print is {rows[0]['auto_print_on_sale']!r}"
         ]
     return []
 
@@ -193,7 +196,7 @@ def check_soft_deleted_row_is_revived(db):
     )
     # Since printing#42 `settings.get` always answers one row (the defaults when nothing live is
     # stored), so "invisible" means the soft-deleted values do not come back — not zero rows.
-    if any(r.get("receipt_header") == "Bar Pepe SL" for r in settings_get(db)):
+    if any(r.get("paper_width") == 58 for r in settings_get(db)):
         return [
             "the fixture is wrong: a soft-deleted singleton is still visible to `settings.get`"
         ]
@@ -203,8 +206,7 @@ def check_soft_deleted_row_is_revived(db):
         HUB,
         "s3",
         "2026-08-20T09:10:00+00:00",
-        receipt_header="Bar Pepe SL",
-        **PAYLOAD,
+        **{**PAYLOAD, "paper_width": 58, "auto_print_on_sale": 0},
     )
 
     problems = []
@@ -214,9 +216,9 @@ def check_soft_deleted_row_is_revived(db):
     if row["is_deleted"] != 0:
         problems.append(
             "saving the settings over a SOFT-DELETED singleton reports success and leaves "
-            "`is_deleted = 1`: `settings.get` filters it out, so the form comes back empty and the "
-            "`printing.setup` checklist item can never be ticked, however many times Save is "
-            "pressed. Its twin `routing_upsert.sql` revived — this one has to as well"
+            "`is_deleted = 1`: `settings.get` filters it out, so the form comes back on the "
+            "defaults however many times Save is pressed, with no way out from inside the "
+            "product. Its twin `routing_upsert.sql` revived — this one has to as well"
         )
     if row.get("deleted_at") is not None:
         problems.append(
@@ -224,7 +226,7 @@ def check_soft_deleted_row_is_revived(db):
             "deleted is a row every later audit reads wrong"
         )
     rows = settings_get(db)
-    if len(rows) != 1 or rows[0]["receipt_header"] != "Bar Pepe SL":
+    if len(rows) != 1 or rows[0]["paper_width"] != 58:
         problems.append(
             f"`{QUERY}` still does not answer with the saved settings after the save: {rows}"
         )
@@ -236,8 +238,8 @@ def check_other_hub_untouched(db):
         db,
         [
             "-c",
-            "INSERT INTO printing_settings (id, hub_id, receipt_header, is_deleted, created_at)"
-            f" VALUES ('other', {literal(OTHER_HUB)}, 'Otro negocio', 0, '2026-08-01T00:00:00+00:00')",
+            "INSERT INTO printing_settings (id, hub_id, paper_width, is_deleted, created_at)"
+            f" VALUES ('other', {literal(OTHER_HUB)}, 58, 0, '2026-08-01T00:00:00+00:00')",
         ],
     )
     run_command(
@@ -245,11 +247,10 @@ def check_other_hub_untouched(db):
         HUB,
         "s4",
         "2026-08-20T09:20:00+00:00",
-        receipt_header="Bar Pepe SL",
-        **PAYLOAD,
+        **{**PAYLOAD, "paper_width": 80},
     )
     rows = settings_get(db, OTHER_HUB)
-    if len(rows) != 1 or rows[0]["receipt_header"] != "Otro negocio":
+    if len(rows) != 1 or rows[0]["paper_width"] != 58:
         return [f"saving one hub's settings touched another hub's row: {rows}"]
     return []
 

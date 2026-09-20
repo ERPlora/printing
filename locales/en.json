@@ -5,18 +5,17 @@
       "label": "Printers"
     }
   },
-  "setup": {
-    "title": "Your printer",
-    "description": "Put your business details on the receipt and assign the printer that prints it."
-  },
   "ui": {
     "printersTitle": "Printers",
     "printersIntro": "Configure receipt printing and the printers found on this network.",
     "ticketSettings": "Ticket settings",
-    "receiptHeader": "Receipt header",
-    "receiptHeaderPlaceholder": "My business · Tax ID · address",
-    "receiptFooter": "Receipt footer",
-    "receiptFooterPlaceholder": "Thank you for your purchase!",
+    "receiptTextLivesInSales": "The receipt header and footer are part of your till settings, where the ticket is printed from.",
+    "receiptSettingsLink": "Open the receipt settings",
+    "receiptTextStranded": "You typed this here before the receipt moved to the till settings, so it is not printed on anything. Move it over to use it:",
+    "moveReceiptText": "Move it to the receipt settings",
+    "movingReceiptText": "Moving…",
+    "receiptTextMoved": "Moved. Your receipt prints it from now on.",
+    "errReceiptTextMove": "The text could not be moved. Copy it into the receipt settings by hand.",
     "paperWidth": "Paper width",
     "autoPrintOnSale": "Print receipt on checkout",
     "openDrawerOnSale": "Open drawer on checkout",

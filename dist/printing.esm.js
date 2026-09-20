@@ -1276,18 +1276,17 @@ var es_default = {
       label: "Impresoras"
     }
   },
-  setup: {
-    title: "Tu impresora",
-    description: "Pon los datos de tu negocio en el tique y asigna la impresora que lo imprime."
-  },
   ui: {
     printersTitle: "Impresoras",
     printersIntro: "Configura la impresi\xF3n de tickets y las impresoras encontradas en esta red.",
     ticketSettings: "Ajustes del ticket",
-    receiptHeader: "Cabecera del recibo",
-    receiptHeaderPlaceholder: "Mi negocio \xB7 NIF \xB7 direcci\xF3n",
-    receiptFooter: "Pie del recibo",
-    receiptFooterPlaceholder: "\xA1Gracias por su compra!",
+    receiptTextLivesInSales: "El encabezado y el pie del tique forman parte de los ajustes de Ventas, que es de donde sale el tique.",
+    receiptSettingsLink: "Abrir los ajustes del tique",
+    receiptTextStranded: "Esto lo escribiste aqu\xED antes de que el tique pasara a los ajustes de Ventas, as\xED que no sale en ning\xFAn papel. Ll\xE9valo all\xED para usarlo:",
+    moveReceiptText: "Llevarlo a los ajustes del tique",
+    movingReceiptText: "Llevando\u2026",
+    receiptTextMoved: "Hecho. Tu tique ya lo lleva.",
+    errReceiptTextMove: "No se ha podido llevar el texto. C\xF3pialo a mano en los ajustes del tique.",
     paperWidth: "Ancho de papel",
     autoPrintOnSale: "Imprimir ticket al cobrar",
     openDrawerOnSale: "Abrir caj\xF3n al cobrar",
@@ -1384,18 +1383,17 @@ var en_default = {
       label: "Printers"
     }
   },
-  setup: {
-    title: "Your printer",
-    description: "Put your business details on the receipt and assign the printer that prints it."
-  },
   ui: {
     printersTitle: "Printers",
     printersIntro: "Configure receipt printing and the printers found on this network.",
     ticketSettings: "Ticket settings",
-    receiptHeader: "Receipt header",
-    receiptHeaderPlaceholder: "My business \xB7 Tax ID \xB7 address",
-    receiptFooter: "Receipt footer",
-    receiptFooterPlaceholder: "Thank you for your purchase!",
+    receiptTextLivesInSales: "The receipt header and footer are part of your till settings, where the ticket is printed from.",
+    receiptSettingsLink: "Open the receipt settings",
+    receiptTextStranded: "You typed this here before the receipt moved to the till settings, so it is not printed on anything. Move it over to use it:",
+    moveReceiptText: "Move it to the receipt settings",
+    movingReceiptText: "Moving\u2026",
+    receiptTextMoved: "Moved. Your receipt prints it from now on.",
+    errReceiptTextMove: "The text could not be moved. Copy it into the receipt settings by hand.",
     paperWidth: "Paper width",
     autoPrintOnSale: "Print receipt on checkout",
     openDrawerOnSale: "Open drawer on checkout",
@@ -1494,6 +1492,10 @@ var DEFAULTS = {
   open_drawer_on_sale: 0,
   print_kitchen: 0
 };
+var SALES_RECEIPT_ROUTE = "/m/sales/settings";
+function blank(value) {
+  return (value ?? "").trim() === "";
+}
 var ROLES = ["receipt", "kitchen", "bar", "label"];
 var MODULE_ID = "printing";
 var ADMINISTER_PERMISSION = "hub.administer";
@@ -1539,6 +1541,11 @@ var ErpPrintingSettings = class extends i3 {
     this.saving = false;
     this.saved = false;
     this.error = "";
+    this.salesReceipt = null;
+    this.salesBusinessName = "";
+    this.movingText = false;
+    this.movedText = false;
+    this.moveError = "";
     this.hardwareOnline = false;
     this.appVersion = "";
     this.scanning = false;
@@ -1573,6 +1580,9 @@ var ErpPrintingSettings = class extends i3 {
     .err { color:#d9480f; font-weight:600; }
     .ok { color:#2b8a3e; }
     .muted { opacity:.65; font-size:.85rem; }
+    .stranded { border:1px solid #0002; border-left:3px solid var(--ion-color-warning, #ffc409); border-radius:.5rem; padding:.6rem .75rem; margin:.6rem 0; max-width:520px; }
+    .stranded p { margin:0 0 .4rem; }
+    .stranded-text { margin:0 0 .5rem; white-space:pre-wrap; overflow-wrap:anywhere; font-family:inherit; font-size:.9rem; }
     .badge { font-size:.7rem; padding:.1rem .45rem; border-radius:999px; background:#0001; }
     /* printing#28 — the queue. Cards, not a table: at 390 px a table is the failure mode of
        sales#126, and this data is one-line-per-job anyway. The roles fold by themselves
@@ -1614,6 +1624,7 @@ var ErpPrintingSettings = class extends i3 {
     void this.loadQueue();
     this.startQueueTimer();
     await this.loadSettings();
+    await this.loadSalesReceipt();
     await this.refreshHardware();
   }
   // ── Cola del hub (printing#28) ─────────────────────────────────────────────────────────────
@@ -1723,12 +1734,109 @@ var ErpPrintingSettings = class extends i3 {
       this.error = e4 instanceof Error ? e4.message : erplora().t(CATALOG, "ui.errLoadSettings");
     }
   }
+  /**
+   * The receipt the ticket is actually printed with, and the name it is signed with (printing#44).
+   *
+   * Best-effort BY DESIGN: `printing` does not depend on `sales`, so a hub can perfectly well have
+   * printers and no till. A refused or absent read leaves `salesReceipt` at `null` — «there is no
+   * Sales app to talk to» — and the screen degrades to what it can still do on its own.
+   */
+  async loadSalesReceipt() {
+    try {
+      const rows = await erplora().queryOptional("sales.pos_settings.get");
+      if (rows === void 0) {
+        this.salesReceipt = null;
+        this.salesBusinessName = "";
+        return;
+      }
+      const row = Array.isArray(rows) ? rows[0] : void 0;
+      this.salesReceipt = {
+        receipt_header: row?.receipt_header ?? "",
+        receipt_footer: row?.receipt_footer ?? ""
+      };
+    } catch {
+      this.salesReceipt = null;
+      this.salesBusinessName = "";
+      return;
+    }
+    try {
+      const rows = await erplora().queryOptional("sales.business.get");
+      this.salesBusinessName = (Array.isArray(rows) ? rows[0]?.name : "") ?? "";
+    } catch {
+      this.salesBusinessName = "";
+    }
+  }
+  /** The text this module still holds, or `null` when there is none worth showing. */
+  get strandedText() {
+    const { receipt_header, receipt_footer } = this.settings;
+    if (blank(receipt_header) && blank(receipt_footer)) return null;
+    return { receipt_header, receipt_footer };
+  }
+  /**
+   * What can be moved RIGHT NOW: the stranded halves whose counterpart in the till settings is
+   * still empty. Never what the shop wrote in Sales — moving on top of that would stamp a
+   * blueprint's demo header onto somebody's real ticket. The command refuses it too; this decides
+   * whether to OFFER it at all.
+   */
+  get movableText() {
+    const stranded = this.strandedText;
+    const target = this.salesReceipt;
+    if (!stranded || !target) return null;
+    const move = {};
+    if (!blank(stranded.receipt_header) && blank(target.receipt_header)) {
+      move.receipt_header = stranded.receipt_header;
+    }
+    if (!blank(stranded.receipt_footer) && blank(target.receipt_footer)) {
+      move.receipt_footer = stranded.receipt_footer;
+    }
+    return Object.keys(move).length > 0 ? move : null;
+  }
+  /** Show the stranded text while it can still be moved — or while there is no app to move it to,
+   *  because hiding it there is how it is lost for good. */
+  get showStrandedText() {
+    if (this.movedText || !this.strandedText) return false;
+    return this.movableText !== null || this.salesReceipt === null;
+  }
+  async moveReceiptText() {
+    const move = this.movableText;
+    if (!move) return;
+    this.movingText = true;
+    this.moveError = "";
+    this.movedText = false;
+    try {
+      await erplora().commandOptional("sales.settings.adopt_receipt_text", move);
+      await this.loadSalesReceipt();
+      if (this.landed(move)) {
+        this.movedText = true;
+      } else {
+        this.moveError = `${erplora().t(CATALOG, "ui.errReceiptTextMove")} (receipt_text_not_applied)`;
+      }
+    } catch (e4) {
+      const code = codeOf(e4);
+      this.moveError = `${erplora().t(CATALOG, "ui.errReceiptTextMove")}${code ? ` (${code})` : ""}`;
+    } finally {
+      this.movingText = false;
+    }
+  }
+  /** Did the move actually land in the till settings? Asked of the re-read, never of the call. */
+  landed(move) {
+    const target = this.salesReceipt;
+    if (!target) return false;
+    if (move.receipt_header !== void 0 && target.receipt_header !== move.receipt_header) return false;
+    if (move.receipt_footer !== void 0 && target.receipt_footer !== move.receipt_footer) return false;
+    return true;
+  }
   async saveSettings() {
     this.saving = true;
     this.saved = false;
     this.error = "";
     try {
-      await erplora().command("printing.settings.update", { ...this.settings });
+      await erplora().command("printing.settings.update", {
+        paper_width: this.settings.paper_width,
+        auto_print_on_sale: this.settings.auto_print_on_sale,
+        open_drawer_on_sale: this.settings.open_drawer_on_sale,
+        print_kitchen: this.settings.print_kitchen
+      });
       this.saved = true;
     } catch (e4) {
       this.error = e4 instanceof Error ? e4.message : erplora().t(CATALOG, "ui.errSaveSettings");
@@ -1783,13 +1891,22 @@ var ErpPrintingSettings = class extends i3 {
    * which is what was happening: the ticket printed beside it came out in Spanish under the
    * shop's own name.
    *
-   * The name is the FIRST LINE of `receipt_header` — the contract that field already has for the
-   * ticket: first line the name, the rest the address — and it is the sign the shopkeeper typed on
-   * this very screen, never a constant. Empty, the field is left out: the renderer falls back to
-   * the product's name, which is today's sheet.
+   * The name is the one the TICKET is signed with, and it is read where the ticket reads it
+   * (printing#44): the first line of the till settings' `receipt_header` — the contract that field
+   * has always had, first line the name and the rest the address — falling back to the hub's legal
+   * name, exactly as `sales`' document mapper does. It used to come from this module's own
+   * `receipt_header`, which since hub#1921 is a field no paper reads: the sheet came out signed
+   * with a name the ticket beside it had never printed.
+   *
+   * No name, the field is left out: the renderer falls back to the product's name, which is the
+   * sheet a hub with no till prints today.
    */
+  get receiptBusinessName() {
+    const header = this.salesReceipt?.receipt_header ?? "";
+    return header.split("\n")[0].trim() || this.salesBusinessName.trim();
+  }
   testPageEnvelope() {
-    const businessName = (this.settings.receipt_header ?? "").split("\n")[0].trim();
+    const businessName = this.receiptBusinessName;
     return {
       locale: erplora().locale,
       ...businessName ? { business_name: businessName } : {}
@@ -2149,14 +2266,28 @@ var ErpPrintingSettings = class extends i3 {
 
       <section>
         <h3>${t3("ui.ticketSettings")}</h3>
-        <div class="field">
-          <ion-input data-testid="printing-receipt-header" mode="md" fill="outline" label-placement="floating" label=${t3("ui.receiptHeader")} .value=${s4.receipt_header} placeholder=${t3("ui.receiptHeaderPlaceholder")}
-            @ionInput=${(e4) => this.set("receipt_header", e4.target.value)}></ion-input>
-        </div>
-        <div class="field">
-          <ion-input data-testid="printing-receipt-footer" mode="md" fill="outline" label-placement="floating" label=${t3("ui.receiptFooter")} .value=${s4.receipt_footer} placeholder=${t3("ui.receiptFooterPlaceholder")}
-            @ionInput=${(e4) => this.set("receipt_footer", e4.target.value)}></ion-input>
-        </div>
+        <!-- printing#44 — the receipt is configured in ONE place, and it is not this one: since
+             hub#1921 both papers (the one that comes out on its own at checkout and the one the
+             print button sends) are the sales viewer's document, which reads the till settings.
+             The two boxes that used to live here wrote a field no paper read. -->
+        <p class="muted" data-testid="printing-receipt-settings-note">${t3("ui.receiptTextLivesInSales")}</p>
+        ${this.salesReceipt ? b2`<a data-testid="printing-receipt-settings-link" href=${SALES_RECEIPT_ROUTE}
+              @click=${(e4) => {
+      e4.preventDefault();
+      this.go(SALES_RECEIPT_ROUTE);
+    }}>${t3("ui.receiptSettingsLink")}</a>` : A}
+        ${this.showStrandedText ? b2`
+              <div class="stranded" data-testid="printing-receipt-text-pending">
+                <p class="muted">${t3("ui.receiptTextStranded")}</p>
+                <pre class="stranded-text">${[s4.receipt_header, s4.receipt_footer].filter((v2) => !blank(v2)).join("\n")}</pre>
+                ${this.movableText ? b2`<ion-button data-testid="printing-receipt-text-move" size="small" ?disabled=${this.movingText}
+                      @click=${() => this.moveReceiptText()}>
+                      ${this.movingText ? t3("ui.movingReceiptText") : t3("ui.moveReceiptText")}
+                    </ion-button>` : A}
+              </div>
+            ` : A}
+        ${this.movedText ? b2`<p data-testid="printing-receipt-text-moved" class="ok">${t3("ui.receiptTextMoved")}</p>` : A}
+        ${this.moveError ? b2`<p data-testid="printing-receipt-text-error" class="err">${this.moveError}</p>` : A}
         <div class="row">
           <label>${t3("ui.paperWidth")}</label>
           <ion-select data-testid="printing-paper-width" .value=${String(s4.paper_width)} interface="popover"
@@ -2223,6 +2354,21 @@ __decorateClass([
 __decorateClass([
   r5()
 ], ErpPrintingSettings.prototype, "error", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "salesReceipt", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "salesBusinessName", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "movingText", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "movedText", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "moveError", 2);
 __decorateClass([
   r5()
 ], ErpPrintingSettings.prototype, "hardwareOnline", 2);

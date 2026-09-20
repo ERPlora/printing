@@ -9,7 +9,7 @@ printing and opens the drawer.
 
 That split explains almost every question about this module:
 
-- Changing the header here changes what the **next** receipt says, everywhere.
+- Changing the paper width here changes how the **next** receipt comes out, everywhere.
 - A printer that does not respond is a **device** problem; nothing in these settings fixes it.
 - Two tills can share the same settings and have completely different printers.
 
@@ -31,13 +31,18 @@ the device with the matching role prints it. `jobId` is the idempotency key: the
 is **one** ticket, so a retried flow does not print twice. Kitchen tickets keep firing from the order
 through `kitchen`'s stations — this door **complements** that path, it does not replace it.
 
-## The receipt is not the fiscal document
+## What the receipt SAYS is set in Sales, not here
 
-The header and footer are **presentation**. The legal document is the invoice, produced by `invoice`,
-and its number, its tax breakdown and its QR come from there.
+The header and the footer of the ticket are part of your **till settings**, and both papers — the
+one that comes out on its own when you charge and the one the print button sends — are printed from
+there. This screen used to have its own two boxes; what was typed in them reached no paper, so they
+were removed and what is left is a link to the receipt settings, plus a one-press move for text
+that was already stranded here.
 
-Editing the footer does not change anything fiscal, and it cannot make an unregistered sale
-compliant.
+And the receipt is not the fiscal document either way: the header and footer are **presentation**.
+The legal document is the invoice, produced by `invoice`, and its number, its tax breakdown and its
+QR come from there. Editing the footer does not change anything fiscal, and it cannot make an
+unregistered sale compliant.
 
 ## Auto-print and the drawer are two separate decisions
 
@@ -77,8 +82,8 @@ change the settings — that needs `printing.manage_settings`.
 ## The settings exist before the first Save
 
 A new hub has no stored settings until somebody presses Save on the Printers screen, but reading
-them still answers one set: the defaults — auto-print on sale **on**, drawer off, 80 mm, empty
-header and footer. What the screen shows is what the till obeys, so the first sale of a new business
+them still answers one set: the defaults — auto-print on sale **on**, drawer off, 80 mm. What the
+screen shows is what the till obeys, so the first sale of a new business
 already prints its receipt (printing#42). Before that fix the screen showed auto-print on while the
 till read nothing and printed nothing, silently, until a blank Save.
 
@@ -86,9 +91,11 @@ till read nothing and printed nothing, silently, until a blank Save.
 
 The settings are one row per hub. If that row ever ends up soft-deleted — an import, a reset, some
 maintenance — saving from the screen **revives** it (printing#25). Before that fix the save reported
-success, the form came back empty, and the `printing.setup` checklist item could never be ticked.
+success and the form came back on the defaults, with no way out from inside the product.
 
 ## The settings form saves everything at once
 
 All the fields are required together. The screen sends the complete snapshot, so a partial update is
-not a thing; whatever the form holds becomes the configuration.
+not a thing; whatever the form holds becomes the configuration. The receipt header and footer are
+**not** part of that snapshot any more: the door ignores them, so the text a shop typed before the
+move survives until it is moved to the till settings.
