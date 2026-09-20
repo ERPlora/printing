@@ -20,12 +20,15 @@ Four layers, all in this one file, no services needed:
      runtime deserializes it into. A boolean where a string enum belongs fails HERE, in the repo,
      before a release ever reaches a hub.
 
-  2. THE `setup` BLOCK (printing#9). Beyond its JSON types, the checks the schema cannot make:
-     the declared query belongs to this module and IS declared, the fields of `configured_when`
-     are columns that query actually returns, the route points at a screen this manifest declares,
-     the permission is one this module declares, and the English `title` has its `es` translation.
-     Whether the query answers what the item claims is proved for real, against Postgres, in
-     `tests/setup_query.postgres.test.py`.
+  2. 🪦 NO `setup` BLOCK (printing#44). This module used to contribute the «Your printer» item of
+     `hub.setup.status`, ticked when `receipt_header` was filled in — a field that since hub#1921
+     reaches no paper at all (the ticket is the sales viewer's document, built from
+     `sales.pos_settings.get`). What the step really needs, a printer carrying the `receipt` role,
+     lives in the CORE's device registry and a `setup.query` has to be a query of the module
+     ITSELF, so there is nothing honest left here to measure: every other column this module
+     stores has a working default and would tick on day one. The core item that CAN see the
+     printers is ERPlora/hub#1948, and `tests/legacy_receipt_text.postgres.test.py` proves the
+     text a shop typed here still survives to be moved.
 
   3. CANONICAL JSON SCHEMA (when reachable). If `jsonschema` is importable and the hub checkout is
      at hand (`ERPLORA_MODULE_SCHEMA`, or the sibling checkout used by the dev workspace), the
@@ -48,11 +51,6 @@ import sys
 MODULE_DIR = pathlib.Path(__file__).resolve().parent.parent
 MANIFEST_PATH = MODULE_DIR / "module.json"
 LOCALES_DIR = MODULE_DIR / "locales"
-
-# Slot the CORE reserved for this module's checklist item — `architecture/hub/setup-status.md` §6,
-# "los huecos reservados". The scale belongs to the core (apps=10, business data=40, team=80); a
-# module does not get to pick its own place in the list, it takes the one it was assigned.
-SETUP_ORDER = 70
 
 # `enum CatchUp` in hub/crates/runtime/src/manifest.rs (`#[serde(rename_all = "lowercase")]`),
 # mirrored by `$defs/scheduledTask.catch_up` in hub/schemas/module.schema.json. There is no
@@ -335,67 +333,7 @@ def check_scheduled_tasks(m: dict) -> None:
                 )
 
 
-# ── Layer 2: the `setup` block (printing#9, hub#369 / ADR-0222) ──────────────────────────
-
-
-def split_top_level(select_list: str) -> list[str]:
-    """Split a SELECT list on its top-level commas, ignoring the ones inside parentheses."""
-    items: list[str] = []
-    depth = 0
-    current = ""
-    for char in select_list:
-        if char == "(":
-            depth += 1
-        elif char == ")":
-            depth -= 1
-        if char == "," and depth == 0:
-            items.append(current)
-            current = ""
-        else:
-            current += char
-    items.append(current)
-    return items
-
-
-def sql_output_columns(sql_path: pathlib.Path) -> set[str] | None:
-    """Column names a query gives back, read off its SELECT list. `None` = cannot tell.
-
-    Why it matters: a `configured_when` field the query does not return is NOT an error on the hub.
-    It reads as a missing value, a missing value is falsy, and the item stays pending forever — the
-    checklist nagging about something already done, with nothing anywhere going red.
-
-    The twin in `inventory` only read the `AS` aliases, because its check runs on an aggregate
-    (`… AS total_products`). Here the query is `SELECT id, receipt_header, …` with no alias in
-    sight, so alias-only would have quietly checked nothing at all. Both forms are read: the alias
-    when there is one, the bare column name otherwise. Anything this cannot name for sure — a `*`,
-    an unaliased expression — returns `None`, which is reported as skipped rather than passed; the
-    real proof is `tests/setup_query.postgres.test.py`, which asks Postgres.
-    """
-    if not sql_path.exists():
-        return None
-    sql = re.sub(r"--[^\n]*", "", sql_path.read_text())
-    match = re.search(r"\bSELECT\b(.+?)\bFROM\b", sql, re.IGNORECASE | re.DOTALL)
-    if not match:
-        return None
-
-    columns: set[str] = set()
-    for item in split_top_level(match.group(1)):
-        item = item.strip()
-        if not item or item == "*" or item.endswith(".*"):
-            return None
-        alias = re.search(r"\bAS\s+([A-Za-z_][A-Za-z0-9_]*)\s*$", item, re.IGNORECASE)
-        if alias:
-            columns.add(alias.group(1).lower())
-            continue
-        bare = re.fullmatch(
-            r"([A-Za-z_][A-Za-z0-9_]*\.)?([A-Za-z_][A-Za-z0-9_]*)", item
-        )
-        if not bare:
-            # An expression the driver names on its own terms: guessing would be worse than
-            # admitting we do not know.
-            return None
-        columns.add(bare.group(2).lower())
-    return columns or None
+# ── Layer 2: NO `setup` block (printing#44) ───────────────────────────────────────────────
 
 
 def locale(lang: str) -> dict:
@@ -409,191 +347,31 @@ def locale(lang: str) -> dict:
         return {}
 
 
-def check_setup(m: dict) -> None:
-    """The onboarding checklist item this module contributes to `hub.setup.status`.
+def check_no_setup_item(m: dict) -> None:
+    """This module contributes NO item to the onboarding checklist, and that is a decision.
 
-    The runtime runs `query`, takes the FIRST row and ticks the item when every `configured_when`
-    check passes; no row at all is "not configured" (ADR-0063). Everything else about the item —
-    its `key`, whether it blocks a sale — is core-owned, so it must not appear here.
+    It used to own slot 70 («Your printer»), ticked when `receipt_header` was filled in. Since
+    hub#1921 that field reaches no paper: both tickets are the sales viewer's document, built from
+    `sales.pos_settings.get`. So the item asked every brand-new salon for a datum its own receipt
+    does not use, and kept the step pending until it was typed (printing#44).
+
+    It cannot simply point somewhere else: `setup.query` has to be a query of the module ITSELF
+    (`module_item_done`, hub/crates/runtime/src/setup_status.rs) and the only thing worth measuring
+    — a printer carrying the `receipt` role — lives in the core's device registry, never in a
+    `printing_*` table. Every other column here has a working default, so any check over them would
+    tick on day one, and a false «done» hides the task for good. The core item that CAN see the
+    printers is ERPlora/hub#1948.
     """
     setup = m.get("setup")
     if setup is None:
-        failures.append(
-            "setup: missing — this module owns slot 70 of the onboarding checklist "
-            "(«Your printer», architecture/hub/setup-status.md §6). Without the block, "
-            "`hub.setup.status` never tells a brand-new hub that nobody has set up its receipt."
-        )
         return
-    if not expect("setup", setup, dict):
-        return
-
-    module_id = m.get("id", "")
-
-    # The four the runtime deserializes without a `#[serde(default)]`: absent = `Manifest::load`
-    # fails = the module cannot be installed.
-    query = field("setup", setup, "query", str, required=True)
-    title = field("setup", setup, "title", str, required=True)
-    route = field("setup", setup, "route", str, required=True)
-    field("setup", setup, "params", dict)
-    description = field("setup", setup, "description", str)
-    field("setup", setup, "icon", str)
-    permission = field("setup", setup, "permission", str)
-    field("setup", setup, "required", bool)
-
-    # `key` is derived by the core as `<module_id>.setup` precisely so that a manifest cannot
-    # rename itself out of the ⛔ list of hub#370. Declaring one is not "ignored": the canonical
-    # schema is `additionalProperties: false`, so it fails the install.
-    if "key" in setup:
-        failures.append(
-            "setup.key: must not be declared — the core derives it as "
-            f"`{module_id}.setup`, and the schema rejects the extra property"
-        )
-
-    # `order` is an integer slot on a scale the core owns, not a preference.
-    if "order" in setup and expect("setup.order", setup["order"], int):
-        if setup["order"] != SETUP_ORDER:
-            failures.append(
-                f"setup.order: {setup['order']} is not the slot the core reserved for this "
-                f"module ({SETUP_ORDER}) — see the table in architecture/hub/setup-status.md §6"
-            )
-
-    # Owning a printer is not a national obligation: `countries` exists for items like VeriFactu.
-    countries = setup.get("countries")
-    if countries is not None and expect("setup.countries", countries, list):
-        for i, code in enumerate(countries):
-            if expect(f"setup.countries[{i}]", code, str) and not re.fullmatch(
-                r"[A-Za-z]{2}", code
-            ):
-                failures.append(
-                    f"setup.countries[{i}]: {code!r} is not an ISO-3166-1 alpha-2 code"
-                )
-
-    # ── configured_when ──────────────────────────────────────────────────────────────────
-    checks = setup.get("configured_when")
-    if checks is None:
-        failures.append("setup.configured_when: missing, and the runtime requires it")
-        checks = []
-    elif expect("setup.configured_when", checks, list) and not checks:
-        # `[]` parses fine and means "merely having a row is enough". For this item that is exactly
-        # the lie to avoid: the settings row exists the moment anyone hits Save on the Printers
-        # screen, defaults and all, whether or not the receipt is set up to say anything.
-        failures.append(
-            "setup.configured_when: empty — the settings row exists as soon as the screen is "
-            "saved once, so a bare row would tick the item with the receipt still unconfigured"
-        )
-
-    fields: list[str] = []
-    for i, check in enumerate(checks if isinstance(checks, list) else []):
-        path = f"setup.configured_when[{i}]"
-        if not expect(path, check, dict):
-            continue
-        name = field(path, check, "field", str, required=True)
-        if isinstance(name, str):
-            fields.append(name)
-        has_truthy = check.get("truthy") is not None
-        has_equals = check.get("equals") is not None
-        if has_truthy:
-            expect(f"{path}.truthy", check["truthy"], bool)
-        if has_truthy == has_equals:
-            # Neither is a check that never passes (the runtime says so out loud); both is a
-            # contract that reads two ways.
-            failures.append(
-                f"{path}: declares {'both' if has_truthy else 'neither'} `truthy` and `equals` — "
-                f"the contract is exactly one of the two"
-            )
-        for key in set(check) - {"field", "truthy", "equals"}:
-            failures.append(f"{path}.{key}: not part of the check contract")
-
-    # ── the query has to be this module's, declared, and to return those columns ──────────
-    queries = m.get("queries") or {}
-    if isinstance(query, str):
-        if not query.startswith(f"{module_id}."):
-            failures.append(
-                f"setup.query: {query!r} is not a query of this module — the runtime runs it "
-                f"through the dispatcher with the caller's permissions, not somebody else's"
-            )
-        spec = queries.get(query)
-        if spec is None:
-            # Best-effort (§5): a check that cannot run is dropped, never reported as pending. So
-            # a typo here does not fail loudly on the hub — the item just never shows up.
-            failures.append(
-                f"setup.query: {query!r} is not declared in `queries` — the item would be "
-                f"silently omitted from the checklist instead of failing"
-            )
-        elif isinstance(spec, dict) and isinstance(spec.get("sql"), str):
-            columns = sql_output_columns(MODULE_DIR / spec["sql"])
-            if columns is None:
-                notes.append(
-                    f"SKIPPED column check: the SELECT list of {spec['sql']} cannot be named "
-                    f"statically — `tests/setup_query.postgres.test.py` asks Postgres instead"
-                )
-            else:
-                for name in fields:
-                    if name.lower() not in columns:
-                        failures.append(
-                            f"setup.configured_when: {name!r} is not a column of {spec['sql']} "
-                            f"(returns: {', '.join(sorted(columns))}) — on the hub that is not an "
-                            f"error, it is a missing value, and a missing value is falsy: the item "
-                            f"would stay pending forever"
-                        )
-
-    # ── the route has to lead somewhere this manifest declares ───────────────────────────
-    if isinstance(route, str):
-        if not route.startswith("/"):
-            failures.append(f"setup.route: {route!r} is not an absolute shell route")
-        elif route.startswith("/m/"):
-            parts = route.strip("/").split("/")
-            nav_ids = {
-                e.get("id") for e in m.get("navigation", []) if isinstance(e, dict)
-            }
-            if len(parts) < 2 or parts[1] != module_id:
-                failures.append(
-                    f"setup.route: {route!r} does not point at this module (`/m/{module_id}/…`)"
-                )
-            elif len(parts) < 3 or parts[2] not in nav_ids:
-                failures.append(
-                    f"setup.route: {route!r} is not one of this module's screens "
-                    f"({', '.join(sorted(str(n) for n in nav_ids))}) — the shell routes "
-                    f"`/m/:moduleId/:navId`, so the CTA would land on a dead route"
-                )
-
-    # ── the permission is the one to CONFIGURE, and this module declares it ──────────────
-    if isinstance(permission, str) and permission:
-        if permission not in (m.get("permissions") or []):
-            failures.append(
-                f"setup.permission: {permission!r} is not declared in `permissions` — nobody "
-                f"would ever be offered the item"
-            )
-        read_permission = (queries.get(query) or {}).get("permission")
-        if permission == read_permission:
-            failures.append(
-                f"setup.permission: {permission!r} is the permission to READ the query. The item "
-                f"needs the one to CONFIGURE: whoever only looks must not be handed a task they "
-                f"cannot complete (architecture/hub/setup-status.md §5)"
-            )
-
-    # ── English canonical in the manifest, translation in locales/ ───────────────────────
-    en_setup = locale("en").get("setup") or {}
-    es_setup = locale("es").get("setup") or {}
-    if isinstance(title, str):
-        if en_setup.get("title") != title:
-            failures.append(
-                f"locales/en.json setup.title: {en_setup.get('title')!r} does not match the "
-                f"manifest title {title!r} — the manifest carries the English fallback and the "
-                f"UI translates from the same source"
-            )
-        if not es_setup.get("title"):
-            failures.append(
-                "locales/es.json setup.title: missing — visible text ships as English source "
-                "PLUS its `es` translation, never English only"
-            )
-    if description:
-        if en_setup.get("description") != description:
-            failures.append(
-                "locales/en.json setup.description: does not match the manifest description"
-            )
-        if not es_setup.get("description"):
-            failures.append("locales/es.json setup.description: missing")
+    failures.append(
+        "setup: declared again — the only thing this module can measure about its own settings is "
+        "`receipt_header`, and since hub#1921 no paper reads it (the ticket is built from "
+        "`sales.pos_settings.get`). An item ticked by that field asks a brand-new salon for a "
+        "datum its receipt does not use. The printer step belongs to the core, which can see the "
+        "roles: ERPlora/hub#1948"
+    )
 
 
 def check_unknown_top_level(m: dict) -> None:
@@ -720,7 +498,7 @@ def main() -> int:
     check_sql_blocks(manifest)
     check_events_and_slots(manifest)
     check_scheduled_tasks(manifest)
-    check_setup(manifest)
+    check_no_setup_item(manifest)
     check_unknown_top_level(manifest)
     check_against_canonical_schema(manifest)
     check_declared_files_exist(manifest)

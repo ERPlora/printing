@@ -28,6 +28,15 @@ interface PrintQueueApiLike {
 interface ErploraClientLike {
   query<T = unknown>(name: string, params?: Record<string, unknown>): Promise<T>;
   command<T = unknown>(name: string, payload?: Record<string, unknown>): Promise<T>;
+  /**
+   * The doors of an OPTIONAL integration (ADR-0127): `undefined` when the owner module is not in
+   * this hub, and a rejection for everything else. `printing` does not depend on `sales` — a hub
+   * can have printers and no till — so every read of the receipt goes through these, and the
+   * generated contract (`.erplora/contracts.json`) records them as optional instead of demanding
+   * `sales` in `depends_on`.
+   */
+  queryOptional<T = unknown>(name: string, params?: Record<string, unknown>): Promise<T | undefined>;
+  commandOptional<T = unknown>(name: string, payload?: Record<string, unknown>): Promise<T | undefined>;
   /** This client acting FOR this module — the only way to reach the print recovery gestures. */
   forModule(moduleId: string): { printQueue: PrintQueueApiLike };
   /** UI gating ONLY: the runtime re-checks every call and refuses on its own. */
@@ -39,6 +48,13 @@ interface ErploraClientLike {
 }
 
 interface PrintingSettings {
+  /**
+   * 🪦 LEGACY, and the whole of printing#44: until hub#1921 the shell built the automatic ticket
+   * from these two columns. Both papers are the sales viewer's document now, which reads
+   * `sales.pos_settings.get`, so what a shop typed here reaches NO paper. The screen no longer
+   * offers them — it reads them once, to offer moving the text where the ticket is printed from,
+   * and `printing.settings.update` no longer writes them (the text has to survive until it moves).
+   */
   receipt_header: string;
   receipt_footer: string;
   paper_width: number;
@@ -60,6 +76,28 @@ const DEFAULTS: PrintingSettings = {
   open_drawer_on_sale: 0,
   print_kitchen: 0,
 };
+
+/** The receipt text as the PAPER reads it: the till settings of `sales` (hub#1921, printing#44). */
+interface SalesReceipt {
+  receipt_header: string;
+  receipt_footer: string;
+}
+
+/** What `sales.settings.adopt_receipt_text` is handed: only the halves that are still empty there. */
+type ReceiptTextMove = Partial<SalesReceipt>;
+
+/**
+ * The one screen where the receipt is configured — the shell's generic settings form for `sales`
+ * (`/m/<id>/settings`, `ModuleView`). Written as a literal, like the core query names above:
+ * ADR-0127 reads a module's interoperability contract off the call site.
+ */
+const SALES_RECEIPT_ROUTE = '/m/sales/settings';
+
+/** Blank is not text: a header of spaces prints nothing. Same trimming the runtime's `truthy()`
+ *  does for the checklist, and the same one `sales.settings.adopt_receipt_text` does in SQL. */
+function blank(value: string | undefined): boolean {
+  return (value ?? '').trim() === '';
+}
 
 const ROLES = ['receipt', 'kitchen', 'bar', 'label'];
 
@@ -259,6 +297,9 @@ export class ErpPrintingSettings extends LitElement {
     .err { color:#d9480f; font-weight:600; }
     .ok { color:#2b8a3e; }
     .muted { opacity:.65; font-size:.85rem; }
+    .stranded { border:1px solid #0002; border-left:3px solid var(--ion-color-warning, #ffc409); border-radius:.5rem; padding:.6rem .75rem; margin:.6rem 0; max-width:520px; }
+    .stranded p { margin:0 0 .4rem; }
+    .stranded-text { margin:0 0 .5rem; white-space:pre-wrap; overflow-wrap:anywhere; font-family:inherit; font-size:.9rem; }
     .badge { font-size:.7rem; padding:.1rem .45rem; border-radius:999px; background:#0001; }
     /* printing#28 — the queue. Cards, not a table: at 390 px a table is the failure mode of
        sales#126, and this data is one-line-per-job anyway. The roles fold by themselves
@@ -297,6 +338,20 @@ export class ErpPrintingSettings extends LitElement {
   @state() private saved = false;
   @state() private error = '';
 
+  /**
+   * The receipt the TILL prints, read through `sales.pos_settings.get` (printing#44). `null` = the
+   * Sales app did not answer — it is not installed, or this user may not read it. That is a
+   * different state from «the receipt is blank» and the screen must not confuse them: with `null`
+   * there is nowhere to send anybody and nothing to move, and the stranded text is still shown so
+   * it can be copied by hand.
+   */
+  @state() private salesReceipt: SalesReceipt | null = null;
+  /** The hub's legal name (`sales.business.get`), which is what the ticket prints with no header. */
+  @state() private salesBusinessName = '';
+  @state() private movingText = false;
+  @state() private movedText = false;
+  @state() private moveError = '';
+
   @state() private hardwareOnline = false;
   @state() private appVersion = '';
   @state() private scanning = false;
@@ -331,6 +386,7 @@ export class ErpPrintingSettings extends LitElement {
     void this.loadQueue();
     this.startQueueTimer();
     await this.loadSettings();
+    await this.loadSalesReceipt();
     await this.refreshHardware();
   }
 
@@ -477,12 +533,127 @@ export class ErpPrintingSettings extends LitElement {
     }
   }
 
+  /**
+   * The receipt the ticket is actually printed with, and the name it is signed with (printing#44).
+   *
+   * Best-effort BY DESIGN: `printing` does not depend on `sales`, so a hub can perfectly well have
+   * printers and no till. A refused or absent read leaves `salesReceipt` at `null` — «there is no
+   * Sales app to talk to» — and the screen degrades to what it can still do on its own.
+   */
+  private async loadSalesReceipt(): Promise<void> {
+    try {
+      const rows = await erplora().queryOptional<SalesReceipt[]>('sales.pos_settings.get');
+      if (rows === undefined) {
+        // The Sales app is not in this hub: there is nowhere to send anybody and nothing to move.
+        this.salesReceipt = null;
+        this.salesBusinessName = '';
+        return;
+      }
+      const row = Array.isArray(rows) ? rows[0] : undefined;
+      // No row at all is a hub that never saved its till settings: an EMPTY receipt, not an absent
+      // app. The difference is what decides whether the text can be moved.
+      this.salesReceipt = {
+        receipt_header: row?.receipt_header ?? '',
+        receipt_footer: row?.receipt_footer ?? '',
+      };
+    } catch {
+      this.salesReceipt = null;
+      this.salesBusinessName = '';
+      return;
+    }
+    try {
+      const rows = await erplora().queryOptional<{ name?: string }[]>('sales.business.get');
+      this.salesBusinessName = (Array.isArray(rows) ? rows[0]?.name : '') ?? '';
+    } catch {
+      this.salesBusinessName = '';
+    }
+  }
+
+  /** The text this module still holds, or `null` when there is none worth showing. */
+  private get strandedText(): SalesReceipt | null {
+    const { receipt_header, receipt_footer } = this.settings;
+    if (blank(receipt_header) && blank(receipt_footer)) return null;
+    return { receipt_header, receipt_footer };
+  }
+
+  /**
+   * What can be moved RIGHT NOW: the stranded halves whose counterpart in the till settings is
+   * still empty. Never what the shop wrote in Sales — moving on top of that would stamp a
+   * blueprint's demo header onto somebody's real ticket. The command refuses it too; this decides
+   * whether to OFFER it at all.
+   */
+  private get movableText(): ReceiptTextMove | null {
+    const stranded = this.strandedText;
+    const target = this.salesReceipt;
+    if (!stranded || !target) return null;
+    const move: ReceiptTextMove = {};
+    if (!blank(stranded.receipt_header) && blank(target.receipt_header)) {
+      move.receipt_header = stranded.receipt_header;
+    }
+    if (!blank(stranded.receipt_footer) && blank(target.receipt_footer)) {
+      move.receipt_footer = stranded.receipt_footer;
+    }
+    return Object.keys(move).length > 0 ? move : null;
+  }
+
+  /** Show the stranded text while it can still be moved — or while there is no app to move it to,
+   *  because hiding it there is how it is lost for good. */
+  private get showStrandedText(): boolean {
+    if (this.movedText || !this.strandedText) return false;
+    return this.movableText !== null || this.salesReceipt === null;
+  }
+
+  private async moveReceiptText(): Promise<void> {
+    const move = this.movableText;
+    if (!move) return;
+    this.movingText = true;
+    this.moveError = '';
+    this.movedText = false;
+    try {
+      await erplora().commandOptional('sales.settings.adopt_receipt_text', move);
+      // Read it back, and believe the READ: the command fills only what is still empty there, and
+      // `commandOptional` answers `undefined` — not an error — when the Sales app went away
+      // between the offer and the press. Declaring success on the call alone would tell somebody
+      // their text is safe when it is still stranded here.
+      await this.loadSalesReceipt();
+      if (this.landed(move)) {
+        this.movedText = true;
+      } else {
+        this.moveError = `${erplora().t(CATALOG, 'ui.errReceiptTextMove')} (receipt_text_not_applied)`;
+      }
+    } catch (e) {
+      // The CODE, never the runtime's prose (ADR-0055): a support call needs something stable to
+      // name, and the text stays on screen so it can be copied by hand.
+      const code = codeOf(e);
+      this.moveError = `${erplora().t(CATALOG, 'ui.errReceiptTextMove')}${code ? ` (${code})` : ''}`;
+    } finally {
+      this.movingText = false;
+    }
+  }
+
+  /** Did the move actually land in the till settings? Asked of the re-read, never of the call. */
+  private landed(move: ReceiptTextMove): boolean {
+    const target = this.salesReceipt;
+    if (!target) return false;
+    if (move.receipt_header !== undefined && target.receipt_header !== move.receipt_header) return false;
+    if (move.receipt_footer !== undefined && target.receipt_footer !== move.receipt_footer) return false;
+    return true;
+  }
+
   private async saveSettings(): Promise<void> {
     this.saving = true;
     this.saved = false;
     this.error = '';
     try {
-      await erplora().command('printing.settings.update', { ...this.settings });
+      // Only what this screen still owns. `receipt_header`/`receipt_footer` are deliberately NOT
+      // sent (printing#44): they are no longer this module's to set, and re-sending them would
+      // keep alive a door that writes text no paper reads.
+      await erplora().command('printing.settings.update', {
+        paper_width: this.settings.paper_width,
+        auto_print_on_sale: this.settings.auto_print_on_sale,
+        open_drawer_on_sale: this.settings.open_drawer_on_sale,
+        print_kitchen: this.settings.print_kitchen,
+      });
       this.saved = true;
     } catch (e) {
       this.error = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errSaveSettings');
@@ -546,13 +717,23 @@ export class ErpPrintingSettings extends LitElement {
    * which is what was happening: the ticket printed beside it came out in Spanish under the
    * shop's own name.
    *
-   * The name is the FIRST LINE of `receipt_header` — the contract that field already has for the
-   * ticket: first line the name, the rest the address — and it is the sign the shopkeeper typed on
-   * this very screen, never a constant. Empty, the field is left out: the renderer falls back to
-   * the product's name, which is today's sheet.
+   * The name is the one the TICKET is signed with, and it is read where the ticket reads it
+   * (printing#44): the first line of the till settings' `receipt_header` — the contract that field
+   * has always had, first line the name and the rest the address — falling back to the hub's legal
+   * name, exactly as `sales`' document mapper does. It used to come from this module's own
+   * `receipt_header`, which since hub#1921 is a field no paper reads: the sheet came out signed
+   * with a name the ticket beside it had never printed.
+   *
+   * No name, the field is left out: the renderer falls back to the product's name, which is the
+   * sheet a hub with no till prints today.
    */
+  private get receiptBusinessName(): string {
+    const header = this.salesReceipt?.receipt_header ?? '';
+    return header.split('\n')[0].trim() || this.salesBusinessName.trim();
+  }
+
   private testPageEnvelope(): Record<string, unknown> {
-    const businessName = (this.settings.receipt_header ?? '').split('\n')[0].trim();
+    const businessName = this.receiptBusinessName;
     return {
       locale: erplora().locale,
       ...(businessName ? { business_name: businessName } : {}),
@@ -974,14 +1155,34 @@ export class ErpPrintingSettings extends LitElement {
 
       <section>
         <h3>${t('ui.ticketSettings')}</h3>
-        <div class="field">
-          <ion-input data-testid="printing-receipt-header" mode="md" fill="outline" label-placement="floating" label=${t('ui.receiptHeader')} .value=${s.receipt_header} placeholder=${t('ui.receiptHeaderPlaceholder')}
-            @ionInput=${(e: Event) => this.set('receipt_header', (e.target as HTMLInputElement).value)}></ion-input>
-        </div>
-        <div class="field">
-          <ion-input data-testid="printing-receipt-footer" mode="md" fill="outline" label-placement="floating" label=${t('ui.receiptFooter')} .value=${s.receipt_footer} placeholder=${t('ui.receiptFooterPlaceholder')}
-            @ionInput=${(e: Event) => this.set('receipt_footer', (e.target as HTMLInputElement).value)}></ion-input>
-        </div>
+        <!-- printing#44 — the receipt is configured in ONE place, and it is not this one: since
+             hub#1921 both papers (the one that comes out on its own at checkout and the one the
+             print button sends) are the sales viewer's document, which reads the till settings.
+             The two boxes that used to live here wrote a field no paper read. -->
+        <p class="muted" data-testid="printing-receipt-settings-note">${t('ui.receiptTextLivesInSales')}</p>
+        ${this.salesReceipt
+          ? html`<a data-testid="printing-receipt-settings-link" href=${SALES_RECEIPT_ROUTE}
+              @click=${(e: Event) => {
+                e.preventDefault();
+                this.go(SALES_RECEIPT_ROUTE);
+              }}>${t('ui.receiptSettingsLink')}</a>`
+          : nothing}
+        ${this.showStrandedText
+          ? html`
+              <div class="stranded" data-testid="printing-receipt-text-pending">
+                <p class="muted">${t('ui.receiptTextStranded')}</p>
+                <pre class="stranded-text">${[s.receipt_header, s.receipt_footer].filter((v) => !blank(v)).join('\n')}</pre>
+                ${this.movableText
+                  ? html`<ion-button data-testid="printing-receipt-text-move" size="small" ?disabled=${this.movingText}
+                      @click=${() => this.moveReceiptText()}>
+                      ${this.movingText ? t('ui.movingReceiptText') : t('ui.moveReceiptText')}
+                    </ion-button>`
+                  : nothing}
+              </div>
+            `
+          : nothing}
+        ${this.movedText ? html`<p data-testid="printing-receipt-text-moved" class="ok">${t('ui.receiptTextMoved')}</p>` : nothing}
+        ${this.moveError ? html`<p data-testid="printing-receipt-text-error" class="err">${this.moveError}</p>` : nothing}
         <div class="row">
           <label>${t('ui.paperWidth')}</label>
           <ion-select data-testid="printing-paper-width" .value=${String(s.paper_width)} interface="popover"

@@ -7,6 +7,11 @@
 -- LEFT JOINs this hub's stored settings and, when there are none (or the singleton is soft-deleted),
 -- answers the table's own DDL defaults, so the screen and the till read the same thing. Reading
 -- never writes a row. Same pattern as `verifactu.config.get` (verifactu#107).
+-- 🪦 `receipt_header`/`receipt_footer` are LEGACY and are still projected for ONE reason
+-- (printing#44): since hub#1921 no paper reads them — the ticket is the sales viewer's
+-- document, built from `sales.pos_settings.get` — and the Printers screen reads them here
+-- only to offer moving what a shop typed before that into the till settings. Nothing else
+-- in the product consumes them, and `printing.settings.update` no longer writes them.
 SELECT ps.id,
        COALESCE(ps.receipt_header, '')         AS receipt_header,
        COALESCE(ps.receipt_footer, '')         AS receipt_footer,

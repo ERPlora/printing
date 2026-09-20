@@ -6,18 +6,17 @@
       "label": "Impresoras"
     }
   },
-  "setup": {
-    "title": "Tu impresora",
-    "description": "Pon los datos de tu negocio en el tique y asigna la impresora que lo imprime."
-  },
   "ui": {
     "printersTitle": "Impresoras",
     "printersIntro": "Configura la impresión de tickets y las impresoras encontradas en esta red.",
     "ticketSettings": "Ajustes del ticket",
-    "receiptHeader": "Cabecera del recibo",
-    "receiptHeaderPlaceholder": "Mi negocio · NIF · dirección",
-    "receiptFooter": "Pie del recibo",
-    "receiptFooterPlaceholder": "¡Gracias por su compra!",
+    "receiptTextLivesInSales": "El encabezado y el pie del tique forman parte de los ajustes de Ventas, que es de donde sale el tique.",
+    "receiptSettingsLink": "Abrir los ajustes del tique",
+    "receiptTextStranded": "Esto lo escribiste aquí antes de que el tique pasara a los ajustes de Ventas, así que no sale en ningún papel. Llévalo allí para usarlo:",
+    "moveReceiptText": "Llevarlo a los ajustes del tique",
+    "movingReceiptText": "Llevando…",
+    "receiptTextMoved": "Hecho. Tu tique ya lo lleva.",
+    "errReceiptTextMove": "No se ha podido llevar el texto. Cópialo a mano en los ajustes del tique.",
     "paperWidth": "Ancho de papel",
     "autoPrintOnSale": "Imprimir ticket al cobrar",
     "openDrawerOnSale": "Abrir cajón al cobrar",

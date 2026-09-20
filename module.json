@@ -52,23 +52,6 @@
       "component": "erp-printing-settings"
     }
   ],
-  "setup": {
-    "query": "printing.settings.get",
-    "configured_when": [
-      {
-        "field": "receipt_header",
-        "truthy": true
-      }
-    ],
-    "title": "Your printer",
-    "description": "Put your business details on the receipt and assign the printer that prints it.",
-    "icon": "print-outline",
-    "route": "/m/printing/printing",
-    "permission": "printing.manage_settings",
-    "countries": [],
-    "order": 70,
-    "required": false
-  },
   "migrations": {
     "postgres": [
       "migrations/postgres/001_init.sql",
@@ -80,7 +63,7 @@
       "permission": "printing.view_settings",
       "sql": "queries/settings_get.sql",
       "ai": {
-        "description": "Retrieves the printing settings (receipt header/footer, paper width, auto-print and auto-open-drawer on sale)"
+        "description": "Retrieves the printing settings (paper width, auto-print and auto-open-drawer on sale). The receipt header and footer are NOT set here: the ticket is composed from the till settings (`sales.pos_settings.get`)"
       }
     }
   },
@@ -93,7 +76,7 @@
         "commands/settings_upsert.sql"
       ],
       "ai": {
-        "description": "Updates the printing settings (header/footer/paper width/auto-print/auto-open-drawer)"
+        "description": "Updates the printing settings (paper width/auto-print/auto-open-drawer). It cannot change the receipt header or footer: those belong to the till settings (`sales.settings.update`)"
       }
     },
     "printing.jobs.create": {

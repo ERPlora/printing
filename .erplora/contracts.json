@@ -7,9 +7,15 @@
       "hub.print.jobs",
       "printing.settings.get"
     ],
-    "optional_queries": [],
+    "optional_queries": [
+      "sales.business.get",
+      "sales.pos_settings.get"
+    ],
     "commands": [
       "printing.settings.update"
+    ],
+    "optional_commands": [
+      "sales.settings.adopt_receipt_text"
     ],
     "events": [],
     "slots": []

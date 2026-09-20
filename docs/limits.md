@@ -3,6 +3,11 @@
 ## Known limitations you should know about
 
 - **No printing happens in the hub.** The device does it; the hub only holds the configuration.
+- **The receipt text is not set here.** The header and footer of the ticket are part of your till
+  settings (Sales → Settings): both papers are printed from there. Two boxes used to live on this
+  screen; what was typed in them reached no paper, so they were removed and the screen now links to
+  the receipt settings — and offers to move the old text over, filling only what is still empty
+  there.
 - **The print queue is the hub's, not this module's.** `printing.jobs.create` hands a document to
   it and keeps its own record of the request (`printing_jobs`); what happened on paper is known by
   the hub, not by this module.
@@ -26,7 +31,7 @@
 
 | Action | Must provide |
 |---|---|
-| Update settings | **all six**: `receipt_header`, `receipt_footer`, `paper_width`, `auto_print_on_sale`, `open_drawer_on_sale`, `print_kitchen` |
+| Update settings | **all four**: `paper_width`, `auto_print_on_sale`, `open_drawer_on_sale`, `print_kitchen`. `receipt_header`/`receipt_footer` are no longer accepted: the door ignores them, and the text of the receipt is set in Sales |
 
 ## Caps and sizes
 
@@ -65,9 +70,9 @@ Practical consequences:
 - **Routing by category is `kitchen`'s job.** It has its own stations, its own destinations and its
   own printer roles, and the kitchen ticket is printed by the shell so that it prints even when the
   kitchen display is not open. The rules that used to live here never did anything.
-- **`sales` does not read these settings for its receipt text.** The till has its own receipt header,
-  footer and marketing QR in its own settings. If your header appears in one place and not another,
-  that is why.
+- **The receipt text belongs to `sales`.** The till holds the header, the footer and the marketing
+  QR of the ticket, and both papers are built from there. The two old columns of this module are
+  kept only so that text typed before the move is not lost.
 
 ## When something looks wrong
 
@@ -81,8 +86,9 @@ drawer on sale**, and check you have `printing.open_drawer`.
 **"The receipt layout looks wrong."** The paper width does not match the roll. Set 80 or 58 to match
 what is loaded.
 
-**"My header does not appear on the sale receipt."** `sales` has its own receipt header and footer in
-its settings. Check there too.
+**"My header does not appear on the sale receipt."** The receipt header and footer live in the till
+settings (Sales → Settings). If you had typed yours on this screen, it is shown here with a button
+that moves it over; you can also copy it across by hand.
 
 **"Kitchen lines do not print."** `kitchen`'s **stations** decide: a station whose destination is
 screen-only never goes to paper.

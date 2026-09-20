@@ -2,9 +2,13 @@
 
 ## What this module does
 
-Printing holds the **printing configuration** of the hub: what goes on the receipt header and footer,
-the paper width, whether a receipt prints automatically when a sale is charged, whether the cash
-drawer opens with it, and which **station** each product category is routed to.
+Printing holds the **printing configuration** of the hub: the paper width, whether a receipt prints
+automatically when a sale is charged, whether the cash drawer opens with it, and which **station**
+each product category is routed to.
+
+What the receipt SAYS is not configured here. The header and the footer of the ticket are part of
+your **till settings** (Sales → Settings), which is where both papers are printed from — the one
+that comes out on its own when you charge and the one the print button sends.
 
 That is the whole module. It is small on purpose.
 
@@ -55,6 +59,11 @@ That isolation is deliberate: the module has to work whether or not a catalogue 
 
 ## First-run setup
 
-Printing contributes an **optional** setup step called **"Your printer"**: *Put your business details
-on the receipt and assign the printer that prints it.* It is considered done once the receipt header
-has been filled in, and it needs `printing.manage_settings`.
+Printing contributes **no step** to the first-run checklist. It used to contribute an optional
+**"Your printer"** step, ticked once the receipt header here had been filled in — a field the
+receipt stopped using, so the step asked for something that changed no paper. What the step should
+really watch, a printer carrying the **Receipt** role, is known by the hub and not by this module,
+so the step belongs there (ERPlora/hub#1948).
+
+You are still told when it matters: the till says so when a ticket is queued with no printer
+registered, and the Printers screen shows the coverage of every role.

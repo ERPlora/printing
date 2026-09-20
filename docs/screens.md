@@ -7,17 +7,26 @@ The module contributes **one** tab to the hub navigation: **Printers**.
 The receipt configuration, plus the network printers the local app has detected. Viewing requires
 `printing.view_settings`; changing requires `printing.manage_settings`.
 
-### Configure the receipt
+### Configure how it prints
 
-1. Fill in the **receipt header** — your business details, the lines printed at the top.
-2. Fill in the **receipt footer** — thanks, legal notice, opening hours.
-3. Pick the **paper width**: **80 mm** or **58 mm**. Those are the only two values.
-4. Decide **auto-print on sale**: print the receipt automatically when a sale is charged.
-5. Decide **open drawer on sale**: send the drawer-kick with that receipt.
-6. Save.
+1. Pick the **paper width**: **80 mm** or **58 mm**. Those are the only two values.
+2. Decide **auto-print on sale**: print the receipt automatically when a sale is charged.
+3. Decide **open drawer on sale**: send the drawer-kick with that receipt.
+4. Save.
 
 The form saves a complete snapshot, not one field at a time. There is no «print kitchen» switch:
 the kitchen ticket fires from the order and is routed by `kitchen`'s stations (ADR-0144).
+
+### What the receipt says is configured in Sales
+
+The **header** and the **footer** of the ticket are part of your till settings, and the screen
+links straight to them. They used to be two boxes here; what was typed in them never reached the
+paper once both tickets started being printed from the till settings, so they were removed.
+
+If you had written something here, the screen shows it with a button that **moves it over** to the
+receipt settings. It only ever fills what is still empty there: a header you already wrote in Sales
+is never overwritten. If the move cannot be made — the Sales app is not installed, or your account
+may not change its settings — the text stays on screen so you can copy it across by hand.
 
 ### Assign the printer
 

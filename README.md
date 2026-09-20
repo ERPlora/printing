@@ -1,6 +1,6 @@
 # Módulo `printing` — configuración de impresión
 
-Guarda **qué se imprime y cómo**: cabecera/pie del recibo, ancho de papel, auto-impresión al cobrar
+Guarda **cómo se imprime**: ancho de papel, auto-impresión al cobrar
 y apertura de cajón.
 
 > 🪦 **El enrutado categoría → estación se RETIRÓ** (printing#25). Existió una pestaña «Routing» con
@@ -44,7 +44,9 @@ Había dos mecanismos de enrutado y solo uno funcionaba. Desde printing#25 queda
 | Conoce productos | sí — estación explícita → producto → **categoría** | no |
 | Quién imprime | el **shell** (`print-comanda.ts`), agrupando por rol de impresora | nadie. Ese era el problema |
 
-Y el TPV (`sales`) tiene **su propia** cabecera/pie de recibo en sus ajustes.
+La cabecera y el pie del tique son de `sales` y solo de `sales` (printing#44): los dos papeles se
+componen desde sus ajustes. Este módulo conserva sus dos columnas viejas sin escribirlas, y la
+pantalla ofrece llevar a Ventas el texto que quedara escrito.
 
 ## Qué expone hoy
 

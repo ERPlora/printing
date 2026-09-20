@@ -1,19 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "printing.settings.update payload",
+  "description": "Lo que decide ESTE módulo sobre la impresión. 🪦 `receipt_header`/`receipt_footer` ya no están: desde hub#1921 el tique lo compone el visor de `sales` con `sales.pos_settings.get`, así que el texto del tique se configura en Ventas y esta puerta dejó de escribirlo (printing#44). Las columnas siguen en la tabla hasta que el texto pendiente se haya llevado.",
   "type": "object",
   "additionalProperties": true,
   "required": [
-    "receipt_header",
-    "receipt_footer",
     "paper_width",
     "auto_print_on_sale",
     "open_drawer_on_sale",
     "print_kitchen"
   ],
   "properties": {
-    "receipt_header": { "type": "string" },
-    "receipt_footer": { "type": "string" },
     "paper_width": { "type": "integer", "enum": [80, 58] },
     "auto_print_on_sale": { "type": "integer", "enum": [0, 1] },
     "open_drawer_on_sale": { "type": "integer", "enum": [0, 1] },
