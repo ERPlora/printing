@@ -63,6 +63,9 @@ function mountWith(options: {
   sales?: { receipt_header: string; receipt_footer: string } | null;
   business?: { name: string } | null;
   salesInstalled?: boolean;
+  /** Sales IS in this hub and refuses the read: `queryOptional` forgives an ABSENT module and
+   *  nothing else, so a denied permission or a broken handler REJECTS (module-sdk, ADR-0127). */
+  salesReadFailsWith?: { message: string; code: string };
   failAdoptWith?: { message: string; code: string };
   adoptDoesNothing?: boolean;
   printers?: (typeof PRINTER)[];
@@ -99,6 +102,11 @@ function mountWith(options: {
     // `queryOptional` answers `undefined` for an app that is not in this hub (ADR-0400/ADR-0127) —
     // never an empty array, which is what «installed and nothing configured» looks like.
     if (!salesInstalled) return undefined;
+    if (options.salesReadFailsWith) {
+      const e = new Error(options.salesReadFailsWith.message) as Error & { code: string };
+      e.code = options.salesReadFailsWith.code;
+      throw e;
+    }
     if (name === 'sales.pos_settings.get') return bench.salesSettings ? [bench.salesSettings] : [];
     if (name === 'sales.business.get') return options.business ? [options.business] : [];
     return [];
@@ -257,6 +265,53 @@ describe('the text a shop already typed here', () => {
       'the text vanished from the only screen it was ever on',
     ).toContain('Bar Manolo');
   });
+});
+
+// `printing` does NOT depend on `sales` (printing#44): whatever Sales does — absent, or present and
+// refusing — the Printers screen keeps doing its own job. The cases above look at the receipt
+// block; these look at everything ELSE, which is what a hard dependency would take down: the read
+// of Sales is awaited before the hardware is probed, so a rejection that escaped it would leave
+// the printer list empty and the screen half-loaded.
+describe('the rest of the screen does not need Sales', () => {
+  const SALES_STATES = [
+    { label: 'is not in this hub', options: { salesInstalled: false } },
+    {
+      label: 'refuses the read (a manager of printers who may not see the till settings)',
+      options: { salesReadFailsWith: { message: 'permission denied', code: 'permission_denied' } },
+    },
+  ];
+
+  for (const { label, options } of SALES_STATES) {
+    it(`lists the printers and saves its own settings when Sales ${label}`, async () => {
+      mountWith({
+        printing: { receipt_header: 'Bar Manolo', receipt_footer: 'Gracias', paper_width: 58 },
+        printers: [PRINTER],
+        ...options,
+      });
+      const el = await mount();
+
+      expect(el.shadowRoot.textContent ?? '', 'the hardware was never probed').toContain(PRINTER.name);
+      expect(byId(el, 'printing-receipt-settings-link'), 'it links to a screen it could not read').toBeNull();
+      expect(byId(el, 'printing-receipt-text-move'), 'it offers a move it cannot check').toBeNull();
+      expect(
+        byId(el, 'printing-receipt-text-pending')?.textContent ?? '',
+        'the text vanished from the only screen it was ever on',
+      ).toContain('Bar Manolo');
+
+      (byId(el, 'printing-settings-save') as HTMLElement).click();
+      await settle(el);
+      expect(byId(el, 'printing-settings-saved'), 'saving broke with Sales out of reach').not.toBeNull();
+      const saved = bench.calls.find((c) => c.name === 'printing.settings.update');
+      // Exactly what this screen still owns — and never the stranded text, which the door would
+      // ignore today and an older module version would blank or overwrite.
+      expect(saved?.payload).toEqual({
+        paper_width: 58,
+        auto_print_on_sale: 1,
+        open_drawer_on_sale: 0,
+        print_kitchen: 0,
+      });
+    });
+  }
 });
 
 describe('the test sheet is signed the way the ticket is', () => {
