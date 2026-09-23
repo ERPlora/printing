@@ -616,6 +616,25 @@ describe('retry and discard, the two gestures that unstick the queue', () => {
     expect(spies.discard).not.toHaveBeenCalled();
     expect(el.shadowRoot.querySelector('.job-discard-confirm')).toBeNull();
   });
+
+  // pm#392: `color="danger"` paints nothing inside this shadow root (Ionic resolves it through a
+  // GLOBAL `.ion-color-*` rule), so the confirmation came out transparent with white text. The red
+  // comes from the component's own `tone-danger` class, fed by the theme token.
+  it('the confirmation is a solid red button painted by tone-danger, not by color=', async () => {
+    stubErplora({ coverage: [], jobs: { dead: JOBS_DEAD } });
+    const el = await mount();
+    await click(el, action(el, 'label-shelf-3', 'discard'));
+    const confirm = el.shadowRoot.querySelector<HTMLElement>('.job-discard-confirm');
+    expect(confirm, 'no confirmation button').toBeTruthy();
+    expect(confirm?.hasAttribute('color'), 'color= does not cross the shadow boundary').toBe(false);
+    expect(confirm?.hasAttribute('fill'), 'it is the solid variant').toBe(false);
+    expect(confirm?.classList.contains('tone-danger')).toBe(true);
+    const styles = (el.constructor as unknown as { elementStyles: { cssText: string }[] }).elementStyles;
+    const css = styles.map((s) => s.cssText).join('\n').replace(/\s+/g, ' ');
+    expect(css).toContain('ion-button.tone-danger:not([fill]) {');
+    expect(css).toContain('--background: var(--ion-color-danger, #c5000f)');
+    expect(css).toContain('--color: var(--ion-color-danger-contrast, #fff)');
+  });
 });
 
 // ── Who may do it ─────────────────────────────────────────────────────────────────────────────
