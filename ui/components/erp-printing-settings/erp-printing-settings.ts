@@ -330,6 +330,17 @@ export class ErpPrintingSettings extends LitElement {
     .job-actions { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; width:100%; margin-top:.4rem; min-width:0; }
     .job-actions.job-discard { border-top:1px dashed #0002; padding-top:.5rem; }
     .job-actions .job-discard-reason { min-width:180px; }
+    /* pm#392 — the discard confirmation paints from HERE, never from \`color=\`: Ionic resolves it
+       through a GLOBAL \`.ion-color-*\` rule that does not reach inside this shadow root, so it came
+       out transparent with white text. Custom properties do inherit through the boundary, so the
+       theme token still applies. */
+    ion-button.tone-danger:not([fill]) {
+      --background: var(--ion-color-danger, #c5000f);
+      --background-activated: var(--ion-color-danger-shade, #ad000d);
+      --background-focused: var(--ion-color-danger-shade, #ad000d);
+      --background-hover: var(--ion-color-danger-tint, #cb1a27);
+      --color: var(--ion-color-danger-contrast, #fff);
+    }
     .job-notice { margin:.25rem 0 .5rem; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; min-width:0; overflow-wrap:anywhere; }
   `;
 
@@ -1045,7 +1056,7 @@ export class ErpPrintingSettings extends LitElement {
               const detail = (e as CustomEvent<{ value?: string | null }>).detail;
               this.discardReason = detail?.value ?? (e.target as HTMLInputElement).value ?? '';
             }}></ion-input>
-          <ion-button data-testid=${`printing-job-${j.jobId}-discard-confirm`} class="job-discard-confirm" size="small" color="danger" ?disabled=${busy}
+          <ion-button data-testid=${`printing-job-${j.jobId}-discard-confirm`} class="job-discard-confirm tone-danger" size="small" ?disabled=${busy}
             @click=${() => void this.confirmDiscard(j.jobId)}>${t('ui.jobDiscardConfirm')}</ion-button>
           <ion-button data-testid=${`printing-job-${j.jobId}-discard-cancel`} class="job-discard-cancel" size="small" fill="outline"
             @click=${() => this.cancelDiscard()}>${t('ui.jobCancel')}</ion-button>
