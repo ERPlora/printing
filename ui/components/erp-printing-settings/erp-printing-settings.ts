@@ -47,6 +47,17 @@ interface ErploraClientLike {
   t(catalog: Record<string, unknown>, key: string, params?: Record<string, unknown>): string;
 }
 
+/**
+ * `peripherals.addNetworkPrinter` (hub#1924), read structurally: a hub whose SDK predates it hands
+ * over a transport without the method, and then the form is simply not offered.
+ */
+interface AddsPrintersByIp {
+  addNetworkPrinter?(host: string, port?: number): Promise<BridgePrinter>;
+}
+
+/** The raw ESC/POS port every thermal printer listens on; what the form starts with. */
+const DEFAULT_PRINTER_PORT = '9100';
+
 interface PrintingSettings {
   /**
    * 🪦 LEGACY, and the whole of printing#44: until hub#1921 the shell built the automatic ticket
@@ -297,6 +308,11 @@ export class ErpPrintingSettings extends LitElement {
     .err { color:#d9480f; font-weight:600; }
     .ok { color:#2b8a3e; }
     .muted { opacity:.65; font-size:.85rem; }
+    .add-printer { max-width:520px; padding:.6rem .75rem; border:1px solid #0001; border-radius:.5rem; }
+    .add-printer-fields { display:flex; gap:.6rem; flex-wrap:wrap; }
+    .add-printer-fields .grow { flex:1 1 12rem; }
+    .add-printer-port { flex:0 0 6rem; }
+    .add-printer-actions { display:flex; gap:.5rem; margin-top:.5rem; }
     .stranded { border:1px solid #0002; border-left:3px solid var(--ion-color-warning, #ffc409); border-radius:.5rem; padding:.6rem .75rem; margin:.6rem 0; max-width:520px; }
     .stranded p { margin:0 0 .4rem; }
     .stranded-text { margin:0 0 .5rem; white-space:pre-wrap; overflow-wrap:anywhere; font-family:inherit; font-size:.9rem; }
@@ -369,6 +385,13 @@ export class ErpPrintingSettings extends LitElement {
   @state() private printers: BridgePrinter[] = [];
   @state() private devices: BridgeDevice[] = [];
   @state() private hardwareError = '';
+  // «Add printer by IP» (hub#1924): the way in when the scan cannot see the printer.
+  @state() private addOpen = false;
+  @state() private addIp = '';
+  @state() private addPort = DEFAULT_PRINTER_PORT;
+  @state() private adding = false;
+  @state() private addError = '';
+  @state() private addedNotice = false;
 
   // printing#28: the hub's queue — coverage per role and the stuck jobs.
   @state() private coverage: CoverageWire[] = [];
@@ -758,6 +781,114 @@ export class ErpPrintingSettings extends LitElement {
     } catch (e) {
       this.hardwareError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errTestPrint');
     }
+  }
+
+  /** The SDK door to add a printer by IP, or `undefined` on a hub whose SDK predates it. */
+  private get addNetworkPrinter(): ((host: string, port?: number) => Promise<BridgePrinter>) | undefined {
+    const peripherals = this.peripherals as BridgeTransport & AddsPrintersByIp;
+    return typeof peripherals.addNetworkPrinter === 'function'
+      ? peripherals.addNetworkPrinter.bind(peripherals)
+      : undefined;
+  }
+
+  private openAddPrinter(): void {
+    this.addOpen = true;
+    this.addError = '';
+    this.addedNotice = false;
+  }
+
+  private closeAddPrinter(): void {
+    this.addOpen = false;
+    this.addError = '';
+    this.addIp = '';
+    this.addPort = DEFAULT_PRINTER_PORT;
+  }
+
+  /**
+   * Adds the printer the owner typed (hub#1924): the app connects first and saves it only if it
+   * answers; then it joins the list and prints its test page, exactly as «Test» would.
+   *
+   * The refusal is read by CODE (ADR-0055) and said in the owner's language: a typo and a printer
+   * that did not answer send them to opposite places, and the raw message is for the log.
+   */
+  private async submitAddPrinter(): Promise<void> {
+    const add = this.addNetworkPrinter;
+    if (!add || this.adding) return;
+    const t = (k: string, p?: Record<string, unknown>): string => erplora().t(CATALOG, k, p);
+    const host = this.addIp.trim();
+    const portText = this.addPort.trim();
+    const port = /^\d+$/.test(portText) ? Number(portText) : NaN;
+    if (!host || !(port >= 1 && port <= 65535)) {
+      this.addError = t('ui.errAddPrinterAddress');
+      return;
+    }
+    this.adding = true;
+    this.addError = '';
+    this.addedNotice = false;
+    try {
+      const printer = await add(host, port);
+      if (!this.printers.some((p) => p.id === printer.id)) this.printers = [...this.printers, printer];
+      this.closeAddPrinter();
+      this.addedNotice = true;
+      await this.test(printer);
+      await this.refreshDevices();
+    } catch (e) {
+      const code = (e as { code?: unknown } | null)?.code;
+      this.addError =
+        code === 'printer_unreachable'
+          ? t('ui.errAddPrinterUnreachable', { address: `${host}:${port}` })
+          : code === 'invalid_printer_address'
+            ? t('ui.errAddPrinterAddress')
+            : code === 'hardware_unavailable'
+              ? t('ui.hardwareUnavailable')
+              : t('ui.errAddPrinter');
+    } finally {
+      this.adding = false;
+    }
+  }
+
+  /** Re-reads the registry so the new printer's role select knows it; a failure is shown, not hidden. */
+  private async refreshDevices(): Promise<void> {
+    try {
+      this.devices = await this.peripherals.getDevices();
+    } catch (e) {
+      this.hardwareError = e instanceof Error ? e.message : erplora().t(CATALOG, 'ui.errScan');
+    }
+  }
+
+  private renderAddPrinter(t: (k: string, p?: Record<string, unknown>) => string) {
+    const onEnter = (e: KeyboardEvent): void => {
+      if (e.key === 'Enter') void this.submitAddPrinter();
+    };
+    const valueOf = (e: Event): string =>
+      (e as CustomEvent<{ value?: string | null }>).detail?.value ?? (e.target as HTMLInputElement).value ?? '';
+    return html`
+      ${this.addedNotice ? html`<p data-testid="printing-add-printer-added" class="ok">${t('ui.addPrinterAdded')}</p>` : nothing}
+      ${this.addOpen
+        ? html`
+            <div data-testid="printing-add-printer-form" class="add-printer">
+              <p class="muted">${t('ui.addPrinterHint')}</p>
+              <div class="add-printer-fields">
+                <ion-input data-testid="printing-add-printer-ip" class="grow" label=${t('ui.addPrinterIp')} label-placement="stacked"
+                  inputmode="decimal" placeholder="192.168.1.100" .value=${this.addIp} ?disabled=${this.adding}
+                  @ionInput=${(e: Event) => { this.addIp = valueOf(e); }} @keydown=${onEnter}></ion-input>
+                <ion-input data-testid="printing-add-printer-port" class="add-printer-port" label=${t('ui.addPrinterPort')} label-placement="stacked"
+                  inputmode="numeric" .value=${this.addPort} ?disabled=${this.adding}
+                  @ionInput=${(e: Event) => { this.addPort = valueOf(e); }} @keydown=${onEnter}></ion-input>
+              </div>
+              ${this.addError ? html`<p data-testid="printing-add-printer-error" class="err">${this.addError}</p>` : nothing}
+              <div class="add-printer-actions">
+                <ion-button data-testid="printing-add-printer-submit" size="small" ?disabled=${this.adding} @click=${() => void this.submitAddPrinter()}>
+                  ${this.adding ? t('ui.addPrinterAdding') : t('ui.addPrinterSubmit')}
+                </ion-button>
+                <ion-button data-testid="printing-add-printer-cancel" size="small" fill="outline" ?disabled=${this.adding} @click=${() => this.closeAddPrinter()}>
+                  ${t('ui.jobCancel')}
+                </ion-button>
+              </div>
+            </div>
+          `
+        : html`<ion-button data-testid="printing-add-printer-open" size="small" fill="outline" @click=${() => this.openAddPrinter()}>${t('ui.addPrinterByIp')}</ion-button>`}
+    `;
   }
 
   private roleOf(printer: BridgePrinter): string {
@@ -1248,6 +1379,7 @@ export class ErpPrintingSettings extends LitElement {
             </div>
           `,
         )}
+        ${this.hardwareOnline && this.addNetworkPrinter ? this.renderAddPrinter(t) : nothing}
       </section>
     `;
   }

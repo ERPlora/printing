@@ -73,6 +73,14 @@ const COVERED: Record<string, { prefix: string; contract: string[]; computed?: s
   'components/erp-printing-settings/erp-printing-settings.ts': {
     prefix: 'printing-',
     contract: [
+      'printing-add-printer-added',
+      'printing-add-printer-cancel',
+      'printing-add-printer-error',
+      'printing-add-printer-form',
+      'printing-add-printer-ip',
+      'printing-add-printer-open',
+      'printing-add-printer-port',
+      'printing-add-printer-submit',
       'printing-auto-print',
       'printing-hardware-empty',
       'printing-hardware-error',
