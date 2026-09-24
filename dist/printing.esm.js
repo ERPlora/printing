@@ -1311,6 +1311,16 @@ var es_default = {
     warnA4Printer: "Esta impresora parece de oficina (A4) y no entiende tickets. Los tiques y comandas necesitan una impresora t\xE9rmica.",
     errAssignRole: "No se pudo asignar el rol",
     errTestPrint: "Fall\xF3 la impresi\xF3n de prueba",
+    addPrinterByIp: "A\xF1adir impresora por IP",
+    addPrinterHint: "Si la b\xFAsqueda no encuentra tu impresora, escribe la direcci\xF3n IP que aparece en su hoja de configuraci\xF3n (se imprime manteniendo pulsado el bot\xF3n de avance de papel al encenderla).",
+    addPrinterIp: "Direcci\xF3n IP",
+    addPrinterPort: "Puerto",
+    addPrinterSubmit: "A\xF1adir y probar",
+    addPrinterAdding: "Conectando\u2026",
+    addPrinterAdded: "Impresora a\xF1adida. Se le ha enviado una p\xE1gina de prueba.",
+    errAddPrinterAddress: "La direcci\xF3n no es v\xE1lida. Escribe la IP tal como sale en la hoja de la impresora (por ejemplo 192.168.1.100) y un puerto entre 1 y 65535.",
+    errAddPrinterUnreachable: "Ninguna impresora ha respondido en {address}. Comprueba que est\xE1 encendida, conectada a la misma red que este dispositivo y que la IP y el puerto son correctos.",
+    errAddPrinter: "No se pudo a\xF1adir la impresora. Actualiza la app de ERPlora en este dispositivo y vuelve a intentarlo.",
     loading: "Cargando\u2026",
     queueTitle: "Cola de impresi\xF3n",
     queueRefresh: "Refrescar",
@@ -1418,6 +1428,16 @@ var en_default = {
     warnA4Printer: "This looks like an office (A4) printer and does not understand receipts. Tickets and kitchen orders need a thermal printer.",
     errAssignRole: "Could not assign the role",
     errTestPrint: "Test print failed",
+    addPrinterByIp: "Add printer by IP",
+    addPrinterHint: "If the search does not find your printer, type the IP address shown on its configuration sheet (hold the feed button while switching it on to print it).",
+    addPrinterIp: "IP address",
+    addPrinterPort: "Port",
+    addPrinterSubmit: "Add and test",
+    addPrinterAdding: "Connecting\u2026",
+    addPrinterAdded: "Printer added. A test page was sent to it.",
+    errAddPrinterAddress: "That is not a valid address. Type the IP as it appears on the printer sheet (for example 192.168.1.100) and a port between 1 and 65535.",
+    errAddPrinterUnreachable: "No printer answered at {address}. Check that it is switched on, connected to the same network as this device, and that the IP and port are correct.",
+    errAddPrinter: "Could not add the printer. Update the ERPlora app on this device and try again.",
     loading: "Loading\u2026",
     queueTitle: "Print queue",
     queueRefresh: "Refresh",
@@ -1484,6 +1504,7 @@ var en_default = {
 
 // ui/components/erp-printing-settings/erp-printing-settings.ts
 var CATALOG = { es: es_default, en: en_default };
+var DEFAULT_PRINTER_PORT = "9100";
 var DEFAULTS = {
   receipt_header: "",
   receipt_footer: "",
@@ -1552,6 +1573,12 @@ var ErpPrintingSettings = class extends i3 {
     this.printers = [];
     this.devices = [];
     this.hardwareError = "";
+    this.addOpen = false;
+    this.addIp = "";
+    this.addPort = DEFAULT_PRINTER_PORT;
+    this.adding = false;
+    this.addError = "";
+    this.addedNotice = false;
     this.coverage = [];
     this.queue = [];
     this.retired = [];
@@ -1580,6 +1607,11 @@ var ErpPrintingSettings = class extends i3 {
     .err { color:#d9480f; font-weight:600; }
     .ok { color:#2b8a3e; }
     .muted { opacity:.65; font-size:.85rem; }
+    .add-printer { max-width:520px; padding:.6rem .75rem; border:1px solid #0001; border-radius:.5rem; }
+    .add-printer-fields { display:flex; gap:.6rem; flex-wrap:wrap; }
+    .add-printer-fields .grow { flex:1 1 12rem; }
+    .add-printer-port { flex:0 0 6rem; }
+    .add-printer-actions { display:flex; gap:.5rem; margin-top:.5rem; }
     .stranded { border:1px solid #0002; border-left:3px solid var(--ion-color-warning, #ffc409); border-radius:.5rem; padding:.6rem .75rem; margin:.6rem 0; max-width:520px; }
     .stranded p { margin:0 0 .4rem; }
     .stranded-text { margin:0 0 .5rem; white-space:pre-wrap; overflow-wrap:anywhere; font-family:inherit; font-size:.9rem; }
@@ -1930,6 +1962,100 @@ var ErpPrintingSettings = class extends i3 {
     } catch (e4) {
       this.hardwareError = e4 instanceof Error ? e4.message : erplora().t(CATALOG, "ui.errTestPrint");
     }
+  }
+  /** The SDK door to add a printer by IP, or `undefined` on a hub whose SDK predates it. */
+  get addNetworkPrinter() {
+    const peripherals = this.peripherals;
+    return typeof peripherals.addNetworkPrinter === "function" ? peripherals.addNetworkPrinter.bind(peripherals) : void 0;
+  }
+  openAddPrinter() {
+    this.addOpen = true;
+    this.addError = "";
+    this.addedNotice = false;
+  }
+  closeAddPrinter() {
+    this.addOpen = false;
+    this.addError = "";
+    this.addIp = "";
+    this.addPort = DEFAULT_PRINTER_PORT;
+  }
+  /**
+   * Adds the printer the owner typed (hub#1924): the app connects first and saves it only if it
+   * answers; then it joins the list and prints its test page, exactly as «Test» would.
+   *
+   * The refusal is read by CODE (ADR-0055) and said in the owner's language: a typo and a printer
+   * that did not answer send them to opposite places, and the raw message is for the log.
+   */
+  async submitAddPrinter() {
+    const add = this.addNetworkPrinter;
+    if (!add || this.adding) return;
+    const t3 = (k2, p3) => erplora().t(CATALOG, k2, p3);
+    const host = this.addIp.trim();
+    const portText = this.addPort.trim();
+    const port = /^\d+$/.test(portText) ? Number(portText) : NaN;
+    if (!host || !(port >= 1 && port <= 65535)) {
+      this.addError = t3("ui.errAddPrinterAddress");
+      return;
+    }
+    this.adding = true;
+    this.addError = "";
+    this.addedNotice = false;
+    try {
+      const printer = await add(host, port);
+      if (!this.printers.some((p3) => p3.id === printer.id)) this.printers = [...this.printers, printer];
+      this.closeAddPrinter();
+      this.addedNotice = true;
+      await this.test(printer);
+      await this.refreshDevices();
+    } catch (e4) {
+      const code = e4?.code;
+      this.addError = code === "printer_unreachable" ? t3("ui.errAddPrinterUnreachable", { address: `${host}:${port}` }) : code === "invalid_printer_address" ? t3("ui.errAddPrinterAddress") : code === "hardware_unavailable" ? t3("ui.hardwareUnavailable") : t3("ui.errAddPrinter");
+    } finally {
+      this.adding = false;
+    }
+  }
+  /** Re-reads the registry so the new printer's role select knows it; a failure is shown, not hidden. */
+  async refreshDevices() {
+    try {
+      this.devices = await this.peripherals.getDevices();
+    } catch (e4) {
+      this.hardwareError = e4 instanceof Error ? e4.message : erplora().t(CATALOG, "ui.errScan");
+    }
+  }
+  renderAddPrinter(t3) {
+    const onEnter = (e4) => {
+      if (e4.key === "Enter") void this.submitAddPrinter();
+    };
+    const valueOf = (e4) => e4.detail?.value ?? e4.target.value ?? "";
+    return b2`
+      ${this.addedNotice ? b2`<p data-testid="printing-add-printer-added" class="ok">${t3("ui.addPrinterAdded")}</p>` : A}
+      ${this.addOpen ? b2`
+            <div data-testid="printing-add-printer-form" class="add-printer">
+              <p class="muted">${t3("ui.addPrinterHint")}</p>
+              <div class="add-printer-fields">
+                <ion-input data-testid="printing-add-printer-ip" class="grow" label=${t3("ui.addPrinterIp")} label-placement="stacked"
+                  inputmode="decimal" placeholder="192.168.1.100" .value=${this.addIp} ?disabled=${this.adding}
+                  @ionInput=${(e4) => {
+      this.addIp = valueOf(e4);
+    }} @keydown=${onEnter}></ion-input>
+                <ion-input data-testid="printing-add-printer-port" class="add-printer-port" label=${t3("ui.addPrinterPort")} label-placement="stacked"
+                  inputmode="numeric" .value=${this.addPort} ?disabled=${this.adding}
+                  @ionInput=${(e4) => {
+      this.addPort = valueOf(e4);
+    }} @keydown=${onEnter}></ion-input>
+              </div>
+              ${this.addError ? b2`<p data-testid="printing-add-printer-error" class="err">${this.addError}</p>` : A}
+              <div class="add-printer-actions">
+                <ion-button data-testid="printing-add-printer-submit" size="small" ?disabled=${this.adding} @click=${() => void this.submitAddPrinter()}>
+                  ${this.adding ? t3("ui.addPrinterAdding") : t3("ui.addPrinterSubmit")}
+                </ion-button>
+                <ion-button data-testid="printing-add-printer-cancel" size="small" fill="outline" ?disabled=${this.adding} @click=${() => this.closeAddPrinter()}>
+                  ${t3("ui.jobCancel")}
+                </ion-button>
+              </div>
+            </div>
+          ` : b2`<ion-button data-testid="printing-add-printer-open" size="small" fill="outline" @click=${() => this.openAddPrinter()}>${t3("ui.addPrinterByIp")}</ion-button>`}
+    `;
   }
   roleOf(printer) {
     const key = this.deviceKeyOf(printer);
@@ -2349,6 +2475,7 @@ var ErpPrintingSettings = class extends i3 {
             </div>
           `
     )}
+        ${this.hardwareOnline && this.addNetworkPrinter ? this.renderAddPrinter(t3) : A}
       </section>
     `;
   }
@@ -2398,6 +2525,24 @@ __decorateClass([
 __decorateClass([
   r5()
 ], ErpPrintingSettings.prototype, "hardwareError", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "addOpen", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "addIp", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "addPort", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "adding", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "addError", 2);
+__decorateClass([
+  r5()
+], ErpPrintingSettings.prototype, "addedNotice", 2);
 __decorateClass([
   r5()
 ], ErpPrintingSettings.prototype, "coverage", 2);
