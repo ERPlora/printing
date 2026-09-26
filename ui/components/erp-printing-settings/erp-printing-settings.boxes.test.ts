@@ -91,4 +91,19 @@ describe('printing settings: every field has its box in ios mode (printing#50)',
     expect(fields.length, 'the walk sees the four fields').toBeGreaterThanOrEqual(4);
     for (const f of fields) expectBox(f);
   });
+
+  // With its box, a md ion-select inside a flex row stretches to the whole row (the role took
+  // 1142px at 1440 and pushed «Test» off its line) and the paper width wrapped its label. Each
+  // select keeps a bounded basis and never grows; happy-dom resolves the shadow-root cascade.
+  it('the paper width and the role keep a bounded width instead of stretching the row', async () => {
+    const el = await mountWithAddFormOpen();
+    for (const id of ['printing-paper-width', `printing-printer-${PRINTER.id}-role`]) {
+      const f = el.shadowRoot.querySelector(`[data-testid=${JSON.stringify(id)}]`)!;
+      const cs = getComputedStyle(f);
+      expect(cs.flexGrow, `${id}: grows to fill the row`).toBe('0');
+      expect(cs.flexBasis, `${id}: no bounded width`).toMatch(/^\d+(\.\d+)?(rem|px)$/);
+    }
+    const role = el.shadowRoot.querySelector(`[data-testid=${JSON.stringify(`printing-printer-${PRINTER.id}-role`)}]`)!;
+    expect(getComputedStyle(role).minWidth, 'the role shrinks below a readable width').toMatch(/^\d+(\.\d+)?(rem|px)$/);
+  });
 });
