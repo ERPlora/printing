@@ -312,6 +312,8 @@ export class ErpPrintingSettings extends LitElement {
     .add-printer-fields { display:flex; gap:.6rem; flex-wrap:wrap; }
     .add-printer-fields .grow { flex:1 1 12rem; }
     .add-printer-port { flex:0 0 6rem; }
+    .paper-width { flex:0 0 10rem; }
+    .printer-role { flex:0 1 14rem; min-width:10rem; }
     .add-printer-actions { display:flex; gap:.5rem; margin-top:.5rem; }
     .stranded { border:1px solid #0002; border-left:3px solid var(--ion-color-warning, #ffc409); border-radius:.5rem; padding:.6rem .75rem; margin:.6rem 0; max-width:520px; }
     .stranded p { margin:0 0 .4rem; }
@@ -1327,7 +1329,7 @@ export class ErpPrintingSettings extends LitElement {
         ${this.moveError ? html`<p data-testid="printing-receipt-text-error" class="err">${this.moveError}</p>` : nothing}
         <div class="row">
           <label>${t('ui.paperWidth')}</label>
-          <ion-select data-testid="printing-paper-width" fill="outline" mode="md" .value=${String(s.paper_width)} interface="popover"
+          <ion-select data-testid="printing-paper-width" class="paper-width" fill="outline" mode="md" .value=${String(s.paper_width)} interface="popover"
             @ionChange=${(e: Event) => this.set('paper_width', Number((e.target as HTMLInputElement).value))}>
             <ion-select-option value="80">80 mm</ion-select-option>
             <ion-select-option value="58">58 mm</ion-select-option>
@@ -1371,7 +1373,7 @@ export class ErpPrintingSettings extends LitElement {
                 <div>${p.name} <span class="badge">${this.printerStatusLabel(p.status)}</span></div>
                 <div class="id">${p.id}${p.mac ? html` · ${p.mac}` : nothing}</div>
               </div>
-              <ion-select data-testid=${`printing-printer-${p.id}-role`} fill="outline" mode="md" placeholder=${t('ui.rolePlaceholder')} .value=${this.roleOf(p)} interface="popover"
+              <ion-select data-testid=${`printing-printer-${p.id}-role`} class="printer-role" fill="outline" mode="md" placeholder=${t('ui.rolePlaceholder')} .value=${this.roleOf(p)} interface="popover"
                 @ionChange=${(e: Event) => this.assignRole(p, (e.target as HTMLInputElement).value)}>
                 ${ROLES.map((r) => html`<ion-select-option value=${r}>${this.roleLabel(r)}</ion-select-option>`)}
               </ion-select>

@@ -1611,6 +1611,8 @@ var ErpPrintingSettings = class extends i3 {
     .add-printer-fields { display:flex; gap:.6rem; flex-wrap:wrap; }
     .add-printer-fields .grow { flex:1 1 12rem; }
     .add-printer-port { flex:0 0 6rem; }
+    .paper-width { flex:0 0 10rem; }
+    .printer-role { flex:0 1 14rem; min-width:10rem; }
     .add-printer-actions { display:flex; gap:.5rem; margin-top:.5rem; }
     .stranded { border:1px solid #0002; border-left:3px solid var(--ion-color-warning, #ffc409); border-radius:.5rem; padding:.6rem .75rem; margin:.6rem 0; max-width:520px; }
     .stranded p { margin:0 0 .4rem; }
@@ -2427,7 +2429,7 @@ var ErpPrintingSettings = class extends i3 {
         ${this.moveError ? b2`<p data-testid="printing-receipt-text-error" class="err">${this.moveError}</p>` : A}
         <div class="row">
           <label>${t3("ui.paperWidth")}</label>
-          <ion-select data-testid="printing-paper-width" fill="outline" mode="md" .value=${String(s4.paper_width)} interface="popover"
+          <ion-select data-testid="printing-paper-width" class="paper-width" fill="outline" mode="md" .value=${String(s4.paper_width)} interface="popover"
             @ionChange=${(e4) => this.set("paper_width", Number(e4.target.value))}>
             <ion-select-option value="80">80 mm</ion-select-option>
             <ion-select-option value="58">58 mm</ion-select-option>
@@ -2467,7 +2469,7 @@ var ErpPrintingSettings = class extends i3 {
                 <div>${p3.name} <span class="badge">${this.printerStatusLabel(p3.status)}</span></div>
                 <div class="id">${p3.id}${p3.mac ? b2` · ${p3.mac}` : A}</div>
               </div>
-              <ion-select data-testid=${`printing-printer-${p3.id}-role`} fill="outline" mode="md" placeholder=${t3("ui.rolePlaceholder")} .value=${this.roleOf(p3)} interface="popover"
+              <ion-select data-testid=${`printing-printer-${p3.id}-role`} class="printer-role" fill="outline" mode="md" placeholder=${t3("ui.rolePlaceholder")} .value=${this.roleOf(p3)} interface="popover"
                 @ionChange=${(e4) => this.assignRole(p3, e4.target.value)}>
                 ${ROLES.map((r6) => b2`<ion-select-option value=${r6}>${this.roleLabel(r6)}</ion-select-option>`)}
               </ion-select>
