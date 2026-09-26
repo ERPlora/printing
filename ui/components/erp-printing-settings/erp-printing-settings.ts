@@ -869,10 +869,10 @@ export class ErpPrintingSettings extends LitElement {
             <div data-testid="printing-add-printer-form" class="add-printer">
               <p class="muted">${t('ui.addPrinterHint')}</p>
               <div class="add-printer-fields">
-                <ion-input data-testid="printing-add-printer-ip" class="grow" label=${t('ui.addPrinterIp')} label-placement="stacked"
+                <ion-input data-testid="printing-add-printer-ip" class="grow" fill="outline" mode="md" label=${t('ui.addPrinterIp')} label-placement="stacked"
                   inputmode="decimal" placeholder="192.168.1.100" .value=${this.addIp} ?disabled=${this.adding}
                   @ionInput=${(e: Event) => { this.addIp = valueOf(e); }} @keydown=${onEnter}></ion-input>
-                <ion-input data-testid="printing-add-printer-port" class="add-printer-port" label=${t('ui.addPrinterPort')} label-placement="stacked"
+                <ion-input data-testid="printing-add-printer-port" class="add-printer-port" fill="outline" mode="md" label=${t('ui.addPrinterPort')} label-placement="stacked"
                   inputmode="numeric" .value=${this.addPort} ?disabled=${this.adding}
                   @ionInput=${(e: Event) => { this.addPort = valueOf(e); }} @keydown=${onEnter}></ion-input>
               </div>
@@ -1327,7 +1327,7 @@ export class ErpPrintingSettings extends LitElement {
         ${this.moveError ? html`<p data-testid="printing-receipt-text-error" class="err">${this.moveError}</p>` : nothing}
         <div class="row">
           <label>${t('ui.paperWidth')}</label>
-          <ion-select data-testid="printing-paper-width" .value=${String(s.paper_width)} interface="popover"
+          <ion-select data-testid="printing-paper-width" fill="outline" mode="md" .value=${String(s.paper_width)} interface="popover"
             @ionChange=${(e: Event) => this.set('paper_width', Number((e.target as HTMLInputElement).value))}>
             <ion-select-option value="80">80 mm</ion-select-option>
             <ion-select-option value="58">58 mm</ion-select-option>
@@ -1371,7 +1371,7 @@ export class ErpPrintingSettings extends LitElement {
                 <div>${p.name} <span class="badge">${this.printerStatusLabel(p.status)}</span></div>
                 <div class="id">${p.id}${p.mac ? html` · ${p.mac}` : nothing}</div>
               </div>
-              <ion-select data-testid=${`printing-printer-${p.id}-role`} placeholder=${t('ui.rolePlaceholder')} .value=${this.roleOf(p)} interface="popover"
+              <ion-select data-testid=${`printing-printer-${p.id}-role`} fill="outline" mode="md" placeholder=${t('ui.rolePlaceholder')} .value=${this.roleOf(p)} interface="popover"
                 @ionChange=${(e: Event) => this.assignRole(p, (e.target as HTMLInputElement).value)}>
                 ${ROLES.map((r) => html`<ion-select-option value=${r}>${this.roleLabel(r)}</ion-select-option>`)}
               </ion-select>
