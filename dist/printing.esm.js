@@ -1552,6 +1552,16 @@ var FORBIDDEN = "forbidden";
 function countKey(key, n5) {
   return n5 === 1 ? `${key}One` : key;
 }
+function businessZone() {
+  const tz = erplora().timezone;
+  const zone = typeof tz === "string" && tz.trim() ? tz.trim() : "UTC";
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: zone });
+    return zone;
+  } catch {
+    return "UTC";
+  }
+}
 function codeOf(e4) {
   const code = e4?.code;
   return typeof code === "string" ? code : "";
@@ -2286,13 +2296,13 @@ var ErpPrintingSettings = class extends i3 {
     `;
   }
   /**
-   * The moment a gesture happened, in the person's own locale — or `''` for anything that is not
-   * a date. «Invalid Date» painted on an audit line is worse than no line at all.
+   * The moment a gesture happened, in the person's own locale and on the business clock — or `''`
+   * for anything that is not a date. «Invalid Date» painted on an audit line is worse than no line.
    */
   momentText(iso) {
     if (!iso) return "";
     const at = new Date(iso);
-    return Number.isNaN(at.getTime()) ? "" : at.toLocaleString(erplora().locale, { dateStyle: "short", timeStyle: "short" });
+    return Number.isNaN(at.getTime()) ? "" : at.toLocaleString(erplora().locale, { dateStyle: "short", timeStyle: "short", timeZone: businessZone() });
   }
   /** Who a stamp names: the person, falling back to the principal, never to an empty label. */
   actor(name, principal) {

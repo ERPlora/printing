@@ -1063,9 +1063,12 @@ function stamps(el: Mounted, jobId: string): string[] {
   );
 }
 
-/** The same moment the screen writes, so the assertion does not pin a timezone or a locale. */
+/**
+ * The same moment the screen writes: the business clock, UTC here because this double publishes no
+ * `erplora.timezone` (hub#1212) — never the device's zone, which the screen does not read.
+ */
 function moment(iso: string, locale: 'es' | 'en'): string {
-  return new Date(iso).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' });
+  return new Date(iso).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' });
 }
 
 describe('the back office reads the stamp back (hub#1565)', () => {

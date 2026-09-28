@@ -26,9 +26,11 @@ interface Double {
   locale: Lang;
   coverage: unknown[];
   jobs?: Record<string, unknown[]>;
+  /** The business clock the shell publishes (hub#1212); absent = a shell that sends none. */
+  timezone?: string;
 }
 
-function stubErplora({ locale, coverage, jobs = {} }: Double): void {
+function stubErplora({ locale, coverage, jobs = {}, timezone }: Double): void {
   (globalThis as Record<string, unknown>).erplora = {
     query: vi.fn(async (name: string, params?: Record<string, unknown>) => {
       if (name === 'printing.settings.get') {
@@ -47,6 +49,7 @@ function stubErplora({ locale, coverage, jobs = {} }: Double): void {
       getDevices: async () => [],
     },
     locale,
+    timezone,
     t: (catalog: Record<string, { ui: Record<string, string> }>, key: string, params?: Record<string, unknown>) => {
       const text = catalog[locale]?.ui?.[key.split('.')[1] ?? ''];
       if (typeof text !== 'string') return `MISSING:${key}`;
@@ -198,9 +201,12 @@ const job = (over: Record<string, unknown>) => ({
   ...over,
 });
 
-/** The same moment the screen writes, so the assertion does not pin a timezone or a locale. */
-function moment(iso: string, lang: Lang): string {
-  return new Date(iso).toLocaleString(lang, { dateStyle: 'short', timeStyle: 'short' });
+/**
+ * The moment as the business clock reads it — `zone`, or UTC when the shell sends none (the rule of
+ * the runtime, hub#1212). Never the device's zone: a tablet on another clock must not move it.
+ */
+function moment(iso: string, lang: Lang, zone = 'UTC'): string {
+  return new Date(iso).toLocaleString(lang, { dateStyle: 'short', timeStyle: 'short', timeZone: zone });
 }
 
 function row(el: Mounted, jobId: string): HTMLElement {
@@ -332,5 +338,52 @@ describe.each(['es', 'en'] as const)('each job is named after its document (%s)'
     const retired = text(byTestid(el.shadowRoot, `printing-retired-${SALE_ID}`));
     expect(retired).toContain(n.ticket);
     expect(retired).not.toContain(SALE_ID);
+  });
+});
+
+// ── the time on a job is the BUSINESS clock, not the device's (rv-tables-104, hub#1212) ────────
+
+describe.each(['es', 'en'] as const)('the time a job is named by reads the business clock (%s)', (lang) => {
+  // UTC+14: no CI runner nor any Mac of the team lives there, so the device's zone cannot pass
+  // for it by coincidence.
+  const BUSINESS = 'Pacific/Kiritimati';
+
+  it('a job without a number is named by the hour of the BUSINESS, not the tablet', async () => {
+    const el = await mount({
+      locale: lang,
+      timezone: BUSINESS,
+      coverage: stuck(1),
+      jobs: { pending: [job({ jobId: SALE_ID })] },
+    });
+    const sale = text(row(el, SALE_ID));
+    expect(sale).toContain(moment(CREATED, lang, BUSINESS));
+    expect(sale, 'the device clock is not the business clock').not.toContain(
+      new Date(CREATED).toLocaleString(lang, { dateStyle: 'short', timeStyle: 'short' }),
+    );
+    expect(ariaOf(el, `printing-job-${SALE_ID}-discard`)).toContain(moment(CREATED, lang, BUSINESS));
+  });
+
+  it('a zone the browser cannot read falls back to UTC, like the runtime', async () => {
+    const el = await mount({
+      locale: lang,
+      timezone: 'Not/AZone',
+      coverage: stuck(1),
+      jobs: { pending: [job({ jobId: SALE_ID })] },
+    });
+    expect(text(row(el, SALE_ID))).toContain(moment(CREATED, lang, 'UTC'));
+  });
+
+  it('the stamp of a retired job says when in the business clock too', async () => {
+    const el = await mount({
+      locale: lang,
+      timezone: BUSINESS,
+      coverage: [],
+      jobs: {
+        discarded: [
+          job({ jobId: SALE_ID, status: 'discarded', documentRef: 'T-000123', discardedAt: CREATED, discardedBy: 'hub_user:1', discardedByName: 'Ana' }),
+        ],
+      },
+    });
+    expect(text(byTestid(el.shadowRoot, `printing-retired-${SALE_ID}`))).toContain(moment(CREATED, lang, BUSINESS));
   });
 });

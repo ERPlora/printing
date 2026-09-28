@@ -42,8 +42,10 @@ interface ErploraClientLike {
   /** UI gating ONLY: the runtime re-checks every call and refuses on its own. */
   hasPermission(perm: string): boolean;
   peripherals: BridgeTransport;
-  /** i18n del módulo (ADR-0055): idioma activo + traducción del catálogo `ui`. */
+  /** Module i18n (ADR-0055): active language + translation of the `ui` catalog. */
   locale: string;
+  /** The business clock: the hub's IANA zone (hub#1212). Absent on a shell that sends none. */
+  timezone?: string;
   t(catalog: Record<string, unknown>, key: string, params?: Record<string, unknown>): string;
 }
 
@@ -257,6 +259,22 @@ const FORBIDDEN = 'forbidden';
  */
 function countKey(key: string, n: number): string {
   return n === 1 ? `${key}One` : key;
+}
+
+/**
+ * The business clock (hub#1212): the zone the shell publishes as `erplora.timezone`, or UTC — like
+ * the runtime — when there is none or the browser cannot read it. Never the device's zone: a tablet
+ * set to another clock must not move the hour a job or a stamp says.
+ */
+function businessZone(): string {
+  const tz = erplora().timezone;
+  const zone = typeof tz === 'string' && tz.trim() ? tz.trim() : 'UTC';
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: zone });
+    return zone;
+  } catch {
+    return 'UTC';
+  }
 }
 
 /** The `code` of an `ErploraError`, or `''` for anything that did not travel with one. */
@@ -1155,15 +1173,15 @@ export class ErpPrintingSettings extends LitElement {
   }
 
   /**
-   * The moment a gesture happened, in the person's own locale — or `''` for anything that is not
-   * a date. «Invalid Date» painted on an audit line is worse than no line at all.
+   * The moment a gesture happened, in the person's own locale and on the business clock — or `''`
+   * for anything that is not a date. «Invalid Date» painted on an audit line is worse than no line.
    */
   private momentText(iso?: string): string {
     if (!iso) return '';
     const at = new Date(iso);
     return Number.isNaN(at.getTime())
       ? ''
-      : at.toLocaleString(erplora().locale, { dateStyle: 'short', timeStyle: 'short' });
+      : at.toLocaleString(erplora().locale, { dateStyle: 'short', timeStyle: 'short', timeZone: businessZone() });
   }
 
   /** Who a stamp names: the person, falling back to the principal, never to an empty label. */
