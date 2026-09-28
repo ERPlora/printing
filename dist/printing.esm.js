@@ -1325,14 +1325,17 @@ var es_default = {
     queueTitle: "Cola de impresi\xF3n",
     queueRefresh: "Refrescar",
     queueRefreshing: "Refrescando\u2026",
-    queueAlertWaiting: "{waiting} trabajo(s) de impresi\xF3n de {role} llevan {age} esperando.",
+    queueAlertWaiting: "{waiting} trabajos de impresi\xF3n de {role} llevan {age} esperando.",
+    queueAlertWaitingOne: "1 trabajo de impresi\xF3n de {role} lleva {age} esperando.",
     queueNoDeviceInApp: "Ning\xFAn dispositivo cubre todav\xEDa este rol: asigna este rol a una impresora de la lista de abajo y este dispositivo lo imprimir\xE1.",
     queueNoDeviceInBrowser: "Ning\xFAn dispositivo de este rol est\xE1 conectado: instala la app de ERPlora en el dispositivo conectado a la impresora y abre tu negocio desde ah\xED.",
     queueWaitingJobs: "En cola: {waiting}",
     queueOldest: "el m\xE1s antiguo lleva {age}",
-    queueLiveHosts: "Imprime desde {n} dispositivo(s).",
+    queueLiveHosts: "Imprime desde {n} dispositivos.",
+    queueLiveHostsOne: "Imprime desde 1 dispositivo.",
     queueLiveHostNames: "Imprime desde: {hosts}.",
-    queueAllClear: "Todo al d\xEDa: la cola est\xE1 vac\xEDa y hay {n} dispositivo(s) conectado(s).",
+    queueAllClear: "Todo al d\xEDa: la cola est\xE1 vac\xEDa y hay {n} dispositivos conectados.",
+    queueAllClearOne: "Todo al d\xEDa: la cola est\xE1 vac\xEDa y hay 1 dispositivo conectado.",
     queueAllClearNoHost: "Ahora mismo no hay nada en cola. No hay ning\xFAn dispositivo de impresi\xF3n conectado: los trabajos nuevos quedar\xE1n en la cola hasta que uno se conecte.",
     statusReady: "Listo",
     statusStalled: "En cola, sin impresora",
@@ -1363,6 +1366,11 @@ var es_default = {
     jobDiscardTitle: "\xBFDescartar este trabajo? No se imprimir\xE1, y queda registrado.",
     jobDiscardReason: "Motivo (opcional)",
     jobDiscardConfirm: "S\xED, descartar",
+    jobName: "{doc} {ref}",
+    jobNameAt: "{doc} \xB7 {when}",
+    jobRetryNamed: "Reintentar {job}",
+    jobDiscardNamed: "Descartar {job}",
+    jobDiscardConfirmNamed: "S\xED, descartar {job}",
     jobCancel: "Cancelar",
     jobRetried: "Vuelve a la cola: lo imprimir\xE1 el pr\xF3ximo dispositivo que se conecte.",
     jobDiscarded: "Trabajo descartado. No se imprimir\xE1 y ya no bloquea su estaci\xF3n.",
@@ -1442,14 +1450,17 @@ var en_default = {
     queueTitle: "Print queue",
     queueRefresh: "Refresh",
     queueRefreshing: "Refreshing\u2026",
-    queueAlertWaiting: "{waiting} print job(s) for {role} have been waiting {age}.",
+    queueAlertWaiting: "{waiting} print jobs for {role} have been waiting {age}.",
+    queueAlertWaitingOne: "1 print job for {role} has been waiting {age}.",
     queueNoDeviceInApp: "No device is covering this role yet: give this role to a printer in the list below and this device will print it.",
     queueNoDeviceInBrowser: "No device for this role is connected: install the ERPlora app on the device that is connected to the printer and open your business from there.",
     queueWaitingJobs: "Waiting: {waiting}",
     queueOldest: "oldest has waited {age}",
-    queueLiveHosts: "Printing from {n} device(s).",
+    queueLiveHosts: "Printing from {n} devices.",
+    queueLiveHostsOne: "Printing from 1 device.",
     queueLiveHostNames: "Printing from: {hosts}.",
-    queueAllClear: "All clear: the queue is empty and {n} device(s) are connected.",
+    queueAllClear: "All clear: the queue is empty and {n} devices are connected.",
+    queueAllClearOne: "All clear: the queue is empty and 1 device is connected.",
     queueAllClearNoHost: "Nothing is waiting right now. No print device is connected: new jobs will stay in the queue until one connects.",
     statusReady: "Ready",
     statusStalled: "Waiting, no printer",
@@ -1480,6 +1491,11 @@ var en_default = {
     jobDiscardTitle: "Discard this job? It will not be printed, and the record stays.",
     jobDiscardReason: "Reason (optional)",
     jobDiscardConfirm: "Yes, discard",
+    jobName: "{doc} {ref}",
+    jobNameAt: "{doc} \xB7 {when}",
+    jobRetryNamed: "Try {job} again",
+    jobDiscardNamed: "Discard {job}",
+    jobDiscardConfirmNamed: "Yes, discard {job}",
     jobCancel: "Cancel",
     jobRetried: "Sent back to the queue: the next device to connect will print it.",
     jobDiscarded: "Job discarded. It will not be printed and it no longer blocks its station.",
@@ -1533,6 +1549,9 @@ var NOT_DISCARDABLE = "print.job_not_discardable";
 var NOT_FOUND = "not_found";
 var CAPABILITY_DENIED = "capability_denied";
 var FORBIDDEN = "forbidden";
+function countKey(key, n5) {
+  return n5 === 1 ? `${key}One` : key;
+}
 function codeOf(e4) {
   const code = e4?.code;
   return typeof code === "string" ? code : "";
@@ -1631,7 +1650,8 @@ var ErpPrintingSettings = class extends i3 {
     .queue-role-status.unattended { background:#fff3bf; color:#a68100; }
     .queue-role .hosts { font-size:.85rem; opacity:.75; }
     .queue-job { display:flex; align-items:flex-start; gap:.6rem; padding:.6rem .75rem; border:1px solid #0001; border-radius:.5rem; margin-bottom:.5rem; flex-wrap:wrap; min-width:0; overflow-wrap:anywhere; }
-    .queue-job .id { font-family:ui-monospace, monospace; font-size:.8rem; opacity:.7; }
+    .queue-job .job-name { font-weight:600; }
+    .queue-job .job-detail { font-size:.8rem; opacity:.7; }
     .queue-job .meta { font-size:.8rem; opacity:.75; white-space:nowrap; }
     .queue-job .badge.st-dead { background:#ffe3e3; color:#c92a2a; }
     .queue-job .badge.st-discarded { background:#0001; color:#495057; }
@@ -2228,7 +2248,28 @@ var ErpPrintingSettings = class extends i3 {
    */
   liveHostsText(c4, t3) {
     const names = c4.liveHostLabels ?? [];
-    return names.length ? t3("ui.queueLiveHostNames", { hosts: names.join(", ") }) : t3("ui.queueLiveHosts", { n: c4.liveHosts });
+    return names.length ? t3("ui.queueLiveHostNames", { hosts: names.join(", ") }) : t3(countKey("ui.queueLiveHosts", c4.liveHosts), { n: c4.liveHosts });
+  }
+  /**
+   * What a person calls this job (printing#52): «Recibo T-000123» — or, when the hub sends no
+   * number, «Recibo · 26/9/26, 23:05». Every gesture on the row is named after it, so eleven
+   * «Descartar» are eleven different buttons for a screen reader too.
+   */
+  jobName(j, t3) {
+    const doc = this.docLabel(j.documentType);
+    const ref = (j.documentRef ?? "").trim();
+    return ref ? t3("ui.jobName", { doc, ref }) : t3("ui.jobNameAt", { doc, when: this.momentText(j.createdAt) });
+  }
+  /**
+   * The line under the name: the station — only when it adds something, «Recibo · Recibo» is an
+   * echo — and how long the job has waited.
+   */
+  jobDetail(j, t3, withAge) {
+    const parts = [];
+    const role = this.roleLabel(j.role);
+    if (role !== this.docLabel(j.documentType)) parts.push(role);
+    if (withAge) parts.push(t3("ui.jobAge", { age: this.waitText((Date.now() - Date.parse(j.createdAt)) / 1e3, t3) }));
+    return parts.join(" \xB7 ");
   }
   /** The outcome of the last gesture, or the refusal explained by its code. */
   renderJobNotice(t3) {
@@ -2304,6 +2345,7 @@ var ErpPrintingSettings = class extends i3 {
     const canDiscard = DISCARDABLE_STATUSES.includes(j.status);
     if (!canRetry && !canDiscard) return A;
     const busy = this.jobBusyId === j.jobId;
+    const name = this.jobName(j, t3);
     if (this.discardingId === j.jobId) {
       return b2`
         <div data-testid=${`printing-job-${j.jobId}-discard-form`} class="job-actions job-discard">
@@ -2315,6 +2357,7 @@ var ErpPrintingSettings = class extends i3 {
         this.discardReason = detail?.value ?? e4.target.value ?? "";
       }}></ion-input>
           <ion-button data-testid=${`printing-job-${j.jobId}-discard-confirm`} class="job-discard-confirm tone-danger" size="small" ?disabled=${busy}
+            aria-label=${t3("ui.jobDiscardConfirmNamed", { job: name })}
             @click=${() => void this.confirmDiscard(j.jobId)}>${t3("ui.jobDiscardConfirm")}</ion-button>
           <ion-button data-testid=${`printing-job-${j.jobId}-discard-cancel`} class="job-discard-cancel" size="small" fill="outline"
             @click=${() => this.cancelDiscard()}>${t3("ui.jobCancel")}</ion-button>
@@ -2324,8 +2367,10 @@ var ErpPrintingSettings = class extends i3 {
     return b2`
       <div class="job-actions">
         ${canRetry ? b2`<ion-button data-testid=${`printing-job-${j.jobId}-retry`} class="job-action-retry" size="small" fill="outline" ?disabled=${busy}
+              aria-label=${t3("ui.jobRetryNamed", { job: name })}
               @click=${() => void this.retryJob(j.jobId)}>${t3("ui.jobRetry")}</ion-button>` : A}
         ${canDiscard ? b2`<ion-button data-testid=${`printing-job-${j.jobId}-discard`} class="job-action-discard" size="small" fill="outline" ?disabled=${busy}
+              aria-label=${t3("ui.jobDiscardNamed", { job: name })}
               @click=${() => this.openDiscard(j.jobId)}>${t3("ui.jobDiscard")}</ion-button>` : A}
       </div>
     `;
@@ -2350,7 +2395,7 @@ var ErpPrintingSettings = class extends i3 {
         ${this.queueLoaded && !this.queueError ? this.coverage.filter((c4) => c4.undrained).map(
       (c4) => b2`
                   <div data-testid=${`printing-queue-alert-${c4.role}`} class="queue-alert">
-                    ${t3("ui.queueAlertWaiting", {
+                    ${t3(countKey("ui.queueAlertWaiting", c4.waiting), {
         waiting: c4.waiting,
         role: this.roleLabel(c4.role),
         age: this.waitText(c4.waitingSeconds, t3)
@@ -2359,7 +2404,7 @@ var ErpPrintingSettings = class extends i3 {
                   </div>
                 `
     ) : A}
-        ${this.queueLoaded && !this.queueError && this.queue.length === 0 ? this.liveHostCount > 0 ? b2`<p data-testid="printing-queue-clear" class="ok">${t3("ui.queueAllClear", { n: this.liveHostCount })}</p>` : b2`<p data-testid="printing-queue-clear-no-host" class="muted">${t3("ui.queueAllClearNoHost")}</p>` : A}
+        ${this.queueLoaded && !this.queueError && this.queue.length === 0 ? this.liveHostCount > 0 ? b2`<p data-testid="printing-queue-clear" class="ok">${t3(countKey("ui.queueAllClear", this.liveHostCount), { n: this.liveHostCount })}</p>` : b2`<p data-testid="printing-queue-clear-no-host" class="muted">${t3("ui.queueAllClearNoHost")}</p>` : A}
         <div class="queue-roles">
           ${this.coverage.map((c4) => {
       const status = classifyCoverage(c4);
@@ -2377,8 +2422,8 @@ var ErpPrintingSettings = class extends i3 {
       (j) => b2`
             <div data-testid=${`printing-job-${j.jobId}`} class="queue-job">
               <div class="grow">
-                <div>${this.docLabel(j.documentType)} <span data-testid=${`printing-job-${j.jobId}-status`} class="badge st-${j.status}">${t3(this.jobStatusKey(j.status))}</span></div>
-                <div class="id">${j.jobId} · ${this.roleLabel(j.role)} · ${t3("ui.jobAge", { age: this.waitText((Date.now() - Date.parse(j.createdAt)) / 1e3, t3) })}</div>
+                <div><span class="job-name">${this.jobName(j, t3)}</span> <span data-testid=${`printing-job-${j.jobId}-status`} class="badge st-${j.status}">${t3(this.jobStatusKey(j.status))}</span></div>
+                <div class="job-detail">${this.jobDetail(j, t3, true)}</div>
                 ${j.lastError ? b2`<div data-testid=${`printing-job-${j.jobId}-error`} class="err">${t3("ui.jobLastError", { error: j.lastError })}</div>` : A}
                 ${this.renderJobStamp(j, t3)}
               </div>
@@ -2393,8 +2438,8 @@ var ErpPrintingSettings = class extends i3 {
       (j) => b2`
                   <div data-testid=${`printing-retired-${j.jobId}`} class="queue-job retired">
                     <div class="grow">
-                      <div>${this.docLabel(j.documentType)} <span data-testid=${`printing-retired-${j.jobId}-status`} class="badge st-${j.status}">${t3(this.jobStatusKey(j.status))}</span></div>
-                      <div class="id">${j.jobId} · ${this.roleLabel(j.role)}</div>
+                      <div><span class="job-name">${this.jobName(j, t3)}</span> <span data-testid=${`printing-retired-${j.jobId}-status`} class="badge st-${j.status}">${t3(this.jobStatusKey(j.status))}</span></div>
+                      ${this.jobDetail(j, t3, false) ? b2`<div class="job-detail">${this.jobDetail(j, t3, false)}</div>` : A}
                       ${this.renderJobStamp(j, t3)}
                     </div>
                   </div>

@@ -247,6 +247,9 @@ describe.each(['es', 'en'] as const)('each job is named after its document (%s)'
     expect(kitchen).toContain(n.kitchen);
     expect(sale, 'the internal id is plumbing, not a label').not.toContain(SALE_ID);
     expect(kitchen, 'the internal id is plumbing, not a label').not.toContain(KITCHEN_ID);
+    // And a waiting job still says how long it has waited: that is what the alert is about.
+    const waiting = LOCALES[lang].ui.jobAge!.replace(/\s*\{age\}\s*/, '');
+    expect(sale).toMatch(new RegExp(`${waiting} \\d+ (h|min|s)`));
     expectCleanSentence(sale);
   });
 
