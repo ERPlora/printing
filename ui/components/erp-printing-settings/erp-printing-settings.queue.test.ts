@@ -241,9 +241,8 @@ async function mount(): Promise<Mounted> {
 
 /** The visible action buttons of a job row, by their stable class. */
 function actions(el: Mounted, jobId: string): HTMLElement[] {
-  const row = Array.from(el.shadowRoot.querySelectorAll('.queue-job')).find((j) =>
-    (j.textContent ?? '').includes(jobId),
-  );
+  // By its test id: the job id is the row's identity, not something it paints (printing#52).
+  const row = el.shadowRoot.querySelector(`[data-testid="printing-job-${jobId}"]`);
   return Array.from(row?.querySelectorAll<HTMLElement>('[class*="job-action"]') ?? []);
 }
 
@@ -512,7 +511,8 @@ describe('the queue listing', () => {
     const jobs = Array.from(el.shadowRoot.querySelectorAll('.queue-job'));
     expect(jobs.length).toBe(2);
     const first = jobs[0]?.textContent ?? '';
-    expect(first).toContain('kitchen-order-1041');
+    expect(jobs[0]?.getAttribute('data-testid')).toBe('printing-job-kitchen-order-1041');
+    expect(first, 'the internal id is not a label (printing#52)').not.toContain('kitchen-order-1041');
     expect(first).toMatch(/comanda de cocina/i); // documentType translated, not the raw enum
     expect(first).toMatch(/pendiente/i); // status badge
     expect(first).toMatch(/0/); // attempts
@@ -524,9 +524,7 @@ describe('the queue listing', () => {
       jobs: { dead: JOBS_DEAD },
     });
     const el = await mount();
-    const dead = Array.from(el.shadowRoot.querySelectorAll('.queue-job')).find((j) =>
-      /label-shelf-3/.test(j.textContent ?? ''),
-    );
+    const dead = el.shadowRoot.querySelector('[data-testid="printing-job-label-shelf-3"]');
     const text = dead?.textContent ?? '';
     expect(text).toMatch(/muert[oa]/i);
     expect(text).toContain('printer not reachable: timeout');
@@ -1054,8 +1052,8 @@ const JOBS_RETRIED_PENDING = [
 
 /** The stamp lines of a job row, in paint order. */
 function stamps(el: Mounted, jobId: string): string[] {
-  const row = Array.from(el.shadowRoot.querySelectorAll('.queue-job')).find((j) =>
-    (j.textContent ?? '').includes(jobId),
+  const row = el.shadowRoot.querySelector(
+    `[data-testid="printing-job-${jobId}"], [data-testid="printing-retired-${jobId}"]`,
   );
   return Array.from(row?.querySelectorAll('.job-stamp') ?? []).map((n) =>
     (n.textContent ?? '').replace(/\s+/g, ' ').trim(),
@@ -1135,9 +1133,9 @@ describe('the back office reads the stamp back (hub#1565)', () => {
     stubErplora({ admin: true, coverage: [], jobs: { discarded: JOBS_DISCARDED } });
     const el = await mount();
     const ids = Array.from(el.shadowRoot.querySelectorAll('.queue-job'))
-      .map((n) => n.textContent ?? '')
-      .filter((txt) => txt.includes('-0007') || txt.includes('0990'));
-    expect(ids[0]).toContain('sale-2026-08-22-0007');
+      .map((n) => n.getAttribute('data-testid') ?? '')
+      .filter((id) => id.includes('-0007') || id.includes('0990'));
+    expect(ids[0]).toBe('printing-retired-sale-2026-08-22-0007');
   });
 
   it('says who put a ticket back in front of the printers', async () => {
