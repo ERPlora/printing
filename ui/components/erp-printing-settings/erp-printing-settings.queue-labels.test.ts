@@ -58,6 +58,11 @@ function stubErplora({ locale, coverage, jobs = {} }: Double): void {
 
 type Mounted = HTMLElement & { shadowRoot: ShadowRoot; updateComplete: Promise<unknown> };
 
+/** The element whose test id is exactly `id` — the hook, not a CSS selector spelling of it. */
+function byTestid(root: ParentNode, id: string): HTMLElement | null {
+  return Array.from(root.querySelectorAll<HTMLElement>('[data-testid]')).find((n) => n.getAttribute('data-testid') === id) ?? null;
+}
+
 async function mount(double: Double): Promise<Mounted> {
   stubErplora(double);
   await import('./erp-printing-settings');
@@ -199,13 +204,13 @@ function moment(iso: string, lang: Lang): string {
 }
 
 function row(el: Mounted, jobId: string): HTMLElement {
-  const found = el.shadowRoot.querySelector<HTMLElement>(`[data-testid="printing-job-${jobId}"]`);
+  const found = byTestid(el.shadowRoot, `printing-job-${jobId}`);
   expect(found, `row ${jobId} is on screen`).toBeTruthy();
   return found!;
 }
 
 function ariaOf(el: Mounted, testid: string): string {
-  return el.shadowRoot.querySelector(`[data-testid="${testid}"]`)?.getAttribute('aria-label') ?? '';
+  return byTestid(el.shadowRoot, testid)?.getAttribute('aria-label') ?? '';
 }
 
 const NAMED: Record<Lang, { ticket: string; other: string; kitchen: string; discard: string; retry: string; confirm: string }> = {
@@ -309,7 +314,7 @@ describe.each(['es', 'en'] as const)('each job is named after its document (%s)'
     expect(ariaOf(el, `printing-job-${OTHER_SALE_ID}-discard`)).toContain(n.other);
     expect(ariaOf(el, 'printing-job-dead-1-retry')).toBe(n.retry);
 
-    el.shadowRoot.querySelector<HTMLElement>(`[data-testid="printing-job-${SALE_ID}-discard"]`)!.click();
+    byTestid(el.shadowRoot, `printing-job-${SALE_ID}-discard`)!.click();
     await el.updateComplete;
     expect(ariaOf(el, `printing-job-${SALE_ID}-discard-confirm`)).toBe(n.confirm);
   });
@@ -324,7 +329,7 @@ describe.each(['es', 'en'] as const)('each job is named after its document (%s)'
         ],
       },
     });
-    const retired = text(el.shadowRoot.querySelector(`[data-testid="printing-retired-${SALE_ID}"]`));
+    const retired = text(byTestid(el.shadowRoot, `printing-retired-${SALE_ID}`));
     expect(retired).toContain(n.ticket);
     expect(retired).not.toContain(SALE_ID);
   });

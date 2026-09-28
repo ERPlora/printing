@@ -231,6 +231,11 @@ async function settle(el: HTMLElement & { updateComplete: Promise<unknown> }): P
 
 type Mounted = HTMLElement & { shadowRoot: ShadowRoot; updateComplete: Promise<unknown> };
 
+/** The element whose test id is exactly `id` — the hook, not a CSS selector spelling of it. */
+function byTestid(root: ParentNode, id: string): HTMLElement | null {
+  return Array.from(root.querySelectorAll<HTMLElement>('[data-testid]')).find((n) => n.getAttribute('data-testid') === id) ?? null;
+}
+
 async function mount(): Promise<Mounted> {
   await import('./erp-printing-settings');
   const el = document.createElement('erp-printing-settings');
@@ -242,7 +247,7 @@ async function mount(): Promise<Mounted> {
 /** The visible action buttons of a job row, by their stable class. */
 function actions(el: Mounted, jobId: string): HTMLElement[] {
   // By its test id: the job id is the row's identity, not something it paints (printing#52).
-  const row = el.shadowRoot.querySelector(`[data-testid="printing-job-${jobId}"]`);
+  const row = byTestid(el.shadowRoot, `printing-job-${jobId}`);
   return Array.from(row?.querySelectorAll<HTMLElement>('[class*="job-action"]') ?? []);
 }
 
@@ -1052,9 +1057,7 @@ const JOBS_RETRIED_PENDING = [
 
 /** The stamp lines of a job row, in paint order. */
 function stamps(el: Mounted, jobId: string): string[] {
-  const row = el.shadowRoot.querySelector(
-    `[data-testid="printing-job-${jobId}"], [data-testid="printing-retired-${jobId}"]`,
-  );
+  const row = byTestid(el.shadowRoot, `printing-job-${jobId}`) ?? byTestid(el.shadowRoot, `printing-retired-${jobId}`);
   return Array.from(row?.querySelectorAll('.job-stamp') ?? []).map((n) =>
     (n.textContent ?? '').replace(/\s+/g, ' ').trim(),
   );
