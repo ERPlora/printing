@@ -42,8 +42,10 @@ interface ErploraClientLike {
   /** UI gating ONLY: the runtime re-checks every call and refuses on its own. */
   hasPermission(perm: string): boolean;
   peripherals: BridgeTransport;
-  /** i18n del módulo (ADR-0055): idioma activo + traducción del catálogo `ui`. */
+  /** Module i18n (ADR-0055): active language + translation of the `ui` catalog. */
   locale: string;
+  /** The business clock: the hub's IANA zone (hub#1212). Absent on a shell that sends none. */
+  timezone?: string;
   t(catalog: Record<string, unknown>, key: string, params?: Record<string, unknown>): string;
 }
 
@@ -189,6 +191,15 @@ interface QueueJobWire {
   createdAt: string;
   lastError: string | null;
   /**
+   * The number the document itself carries — the ticket, the invoice, the kitchen order
+   * (printing#52). It is what a person recognises a job by; `jobId` is the producer's idempotency
+   * key and never a label.
+   *
+   * Optional because it is younger than the query: a hub older than it answers without, and the
+   * row then says the document type and when it was queued.
+   */
+  documentRef?: string;
+  /**
    * **The stamp** a person left on this job (hub#1108/#1532, readable since hub#1565).
    *
    * Every field is optional twice over, and both reasons matter:
@@ -240,6 +251,31 @@ const NOT_DISCARDABLE = 'print.job_not_discardable';
 const NOT_FOUND = 'not_found';
 const CAPABILITY_DENIED = 'capability_denied';
 const FORBIDDEN = 'forbidden';
+
+/**
+ * The catalog key for a sentence that counts something (printing#53): `<key>One` for exactly one,
+ * `<key>` otherwise. Only the catalog knows the singular noun and the verb that agrees with it
+ * («1 trabajo … lleva» / «11 trabajos … llevan»), so the code picks a sentence, never a suffix.
+ */
+function countKey(key: string, n: number): string {
+  return n === 1 ? `${key}One` : key;
+}
+
+/**
+ * The business clock (hub#1212): the zone the shell publishes as `erplora.timezone`, or UTC — like
+ * the runtime — when there is none or the browser cannot read it. Never the device's zone: a tablet
+ * set to another clock must not move the hour a job or a stamp says.
+ */
+function businessZone(): string {
+  const tz = erplora().timezone;
+  const zone = typeof tz === 'string' && tz.trim() ? tz.trim() : 'UTC';
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: zone });
+    return zone;
+  } catch {
+    return 'UTC';
+  }
+}
 
 /** The `code` of an `ErploraError`, or `''` for anything that did not travel with one. */
 function codeOf(e: unknown): string {
@@ -332,7 +368,8 @@ export class ErpPrintingSettings extends LitElement {
     .queue-role-status.unattended { background:#fff3bf; color:#a68100; }
     .queue-role .hosts { font-size:.85rem; opacity:.75; }
     .queue-job { display:flex; align-items:flex-start; gap:.6rem; padding:.6rem .75rem; border:1px solid #0001; border-radius:.5rem; margin-bottom:.5rem; flex-wrap:wrap; min-width:0; overflow-wrap:anywhere; }
-    .queue-job .id { font-family:ui-monospace, monospace; font-size:.8rem; opacity:.7; }
+    .queue-job .job-name { font-weight:600; }
+    .queue-job .job-detail { font-size:.8rem; opacity:.7; }
     .queue-job .meta { font-size:.8rem; opacity:.75; white-space:nowrap; }
     .queue-job .badge.st-dead { background:#ffe3e3; color:#c92a2a; }
     .queue-job .badge.st-discarded { background:#0001; color:#495057; }
@@ -1088,7 +1125,34 @@ export class ErpPrintingSettings extends LitElement {
     const names = c.liveHostLabels ?? [];
     return names.length
       ? t('ui.queueLiveHostNames', { hosts: names.join(', ') })
-      : t('ui.queueLiveHosts', { n: c.liveHosts });
+      : t(countKey('ui.queueLiveHosts', c.liveHosts), { n: c.liveHosts });
+  }
+
+  /**
+   * What a person calls this job (printing#52): «Recibo T-000123» — or, when the hub sends no
+   * number, «Recibo · 26/9/26, 23:05». Every gesture on the row is named after it, so eleven
+   * «Descartar» are eleven different buttons for a screen reader too.
+   */
+  private jobName(j: QueueJobWire, t: (k: string, p?: Record<string, unknown>) => string): string {
+    const doc = this.docLabel(j.documentType);
+    const ref = (j.documentRef ?? '').trim();
+    return ref ? t('ui.jobName', { doc, ref }) : t('ui.jobNameAt', { doc, when: this.momentText(j.createdAt) });
+  }
+
+  /**
+   * The line under the name: the station — only when it adds something, «Recibo · Recibo» is an
+   * echo — and how long the job has waited.
+   */
+  private jobDetail(
+    j: QueueJobWire,
+    t: (k: string, p?: Record<string, unknown>) => string,
+    withAge: boolean,
+  ): string {
+    const parts: string[] = [];
+    const role = this.roleLabel(j.role);
+    if (role !== this.docLabel(j.documentType)) parts.push(role);
+    if (withAge) parts.push(t('ui.jobAge', { age: this.waitText((Date.now() - Date.parse(j.createdAt)) / 1000, t) }));
+    return parts.join(' · ');
   }
 
   /** The outcome of the last gesture, or the refusal explained by its code. */
@@ -1109,15 +1173,15 @@ export class ErpPrintingSettings extends LitElement {
   }
 
   /**
-   * The moment a gesture happened, in the person's own locale — or `''` for anything that is not
-   * a date. «Invalid Date» painted on an audit line is worse than no line at all.
+   * The moment a gesture happened, in the person's own locale and on the business clock — or `''`
+   * for anything that is not a date. «Invalid Date» painted on an audit line is worse than no line.
    */
   private momentText(iso?: string): string {
     if (!iso) return '';
     const at = new Date(iso);
     return Number.isNaN(at.getTime())
       ? ''
-      : at.toLocaleString(erplora().locale, { dateStyle: 'short', timeStyle: 'short' });
+      : at.toLocaleString(erplora().locale, { dateStyle: 'short', timeStyle: 'short', timeZone: businessZone() });
   }
 
   /** Who a stamp names: the person, falling back to the principal, never to an empty label. */
@@ -1179,6 +1243,7 @@ export class ErpPrintingSettings extends LitElement {
     const canDiscard = DISCARDABLE_STATUSES.includes(j.status);
     if (!canRetry && !canDiscard) return nothing;
     const busy = this.jobBusyId === j.jobId;
+    const name = this.jobName(j, t);
     if (this.discardingId === j.jobId) {
       return html`
         <div data-testid=${`printing-job-${j.jobId}-discard-form`} class="job-actions job-discard">
@@ -1190,6 +1255,7 @@ export class ErpPrintingSettings extends LitElement {
               this.discardReason = detail?.value ?? (e.target as HTMLInputElement).value ?? '';
             }}></ion-input>
           <ion-button data-testid=${`printing-job-${j.jobId}-discard-confirm`} class="job-discard-confirm tone-danger" size="small" ?disabled=${busy}
+            aria-label=${t('ui.jobDiscardConfirmNamed', { job: name })}
             @click=${() => void this.confirmDiscard(j.jobId)}>${t('ui.jobDiscardConfirm')}</ion-button>
           <ion-button data-testid=${`printing-job-${j.jobId}-discard-cancel`} class="job-discard-cancel" size="small" fill="outline"
             @click=${() => this.cancelDiscard()}>${t('ui.jobCancel')}</ion-button>
@@ -1200,10 +1266,12 @@ export class ErpPrintingSettings extends LitElement {
       <div class="job-actions">
         ${canRetry
           ? html`<ion-button data-testid=${`printing-job-${j.jobId}-retry`} class="job-action-retry" size="small" fill="outline" ?disabled=${busy}
+              aria-label=${t('ui.jobRetryNamed', { job: name })}
               @click=${() => void this.retryJob(j.jobId)}>${t('ui.jobRetry')}</ion-button>`
           : nothing}
         ${canDiscard
           ? html`<ion-button data-testid=${`printing-job-${j.jobId}-discard`} class="job-action-discard" size="small" fill="outline" ?disabled=${busy}
+              aria-label=${t('ui.jobDiscardNamed', { job: name })}
               @click=${() => this.openDiscard(j.jobId)}>${t('ui.jobDiscard')}</ion-button>`
           : nothing}
       </div>
@@ -1233,7 +1301,7 @@ export class ErpPrintingSettings extends LitElement {
               .map(
                 (c) => html`
                   <div data-testid=${`printing-queue-alert-${c.role}`} class="queue-alert">
-                    ${t('ui.queueAlertWaiting', {
+                    ${t(countKey('ui.queueAlertWaiting', c.waiting), {
                       waiting: c.waiting,
                       role: this.roleLabel(c.role),
                       age: this.waitText(c.waitingSeconds, t),
@@ -1245,7 +1313,7 @@ export class ErpPrintingSettings extends LitElement {
           : nothing}
         ${this.queueLoaded && !this.queueError && this.queue.length === 0
           ? this.liveHostCount > 0
-            ? html`<p data-testid="printing-queue-clear" class="ok">${t('ui.queueAllClear', { n: this.liveHostCount })}</p>`
+            ? html`<p data-testid="printing-queue-clear" class="ok">${t(countKey('ui.queueAllClear', this.liveHostCount), { n: this.liveHostCount })}</p>`
             : html`<p data-testid="printing-queue-clear-no-host" class="muted">${t('ui.queueAllClearNoHost')}</p>`
           : nothing}
         <div class="queue-roles">
@@ -1269,8 +1337,8 @@ export class ErpPrintingSettings extends LitElement {
           (j) => html`
             <div data-testid=${`printing-job-${j.jobId}`} class="queue-job">
               <div class="grow">
-                <div>${this.docLabel(j.documentType)} <span data-testid=${`printing-job-${j.jobId}-status`} class="badge st-${j.status}">${t(this.jobStatusKey(j.status))}</span></div>
-                <div class="id">${j.jobId} · ${this.roleLabel(j.role)} · ${t('ui.jobAge', { age: this.waitText((Date.now() - Date.parse(j.createdAt)) / 1000, t) })}</div>
+                <div><span class="job-name">${this.jobName(j, t)}</span> <span data-testid=${`printing-job-${j.jobId}-status`} class="badge st-${j.status}">${t(this.jobStatusKey(j.status))}</span></div>
+                <div class="job-detail">${this.jobDetail(j, t, true)}</div>
                 ${j.lastError ? html`<div data-testid=${`printing-job-${j.jobId}-error`} class="err">${t('ui.jobLastError', { error: j.lastError })}</div>` : nothing}
                 ${this.renderJobStamp(j, t)}
               </div>
@@ -1286,8 +1354,8 @@ export class ErpPrintingSettings extends LitElement {
                 (j) => html`
                   <div data-testid=${`printing-retired-${j.jobId}`} class="queue-job retired">
                     <div class="grow">
-                      <div>${this.docLabel(j.documentType)} <span data-testid=${`printing-retired-${j.jobId}-status`} class="badge st-${j.status}">${t(this.jobStatusKey(j.status))}</span></div>
-                      <div class="id">${j.jobId} · ${this.roleLabel(j.role)}</div>
+                      <div><span class="job-name">${this.jobName(j, t)}</span> <span data-testid=${`printing-retired-${j.jobId}-status`} class="badge st-${j.status}">${t(this.jobStatusKey(j.status))}</span></div>
+                      ${this.jobDetail(j, t, false) ? html`<div class="job-detail">${this.jobDetail(j, t, false)}</div>` : nothing}
                       ${this.renderJobStamp(j, t)}
                     </div>
                   </div>
