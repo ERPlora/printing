@@ -1267,7 +1267,7 @@ function define(tag, ctor) {
   }
 }
 
-// locales/es.json
+// @erplora/module-printing/locales/es.json
 var es_default = {
   name: "Impresi\xF3n",
   description: "Impresi\xF3n de tiques, comandas de cocina y etiquetas desde el dispositivo que tengas conectado.",
@@ -1393,7 +1393,7 @@ var es_default = {
   }
 };
 
-// locales/en.json
+// @erplora/module-printing/locales/en.json
 var en_default = {
   name: "Printing",
   navigation: {
@@ -1518,7 +1518,7 @@ var en_default = {
   }
 };
 
-// ui/components/erp-printing-settings/erp-printing-settings.ts
+// @erplora/module-printing/ui/components/erp-printing-settings/erp-printing-settings.ts
 var CATALOG = { es: es_default, en: en_default };
 var DEFAULT_PRINTER_PORT = "9100";
 var DEFAULTS = {
