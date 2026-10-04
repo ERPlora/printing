@@ -30,7 +30,6 @@ esa estación. Da una de alta y saldrá sola.». La comanda de cocina no se desv
 tiques.
 Implicados: pendiente
 Pendiente de enlazar: kitchen — disparar el pedido a cocina (la comanda sale al crearse el pedido de cocina)
-Pendiente de enlazar: sales — disparar la ronda desde el TPV
 Pendiente de enlazar: hub — impresión de la comanda al disparar el pedido
 QA: qa-hub-restaurant §08
 

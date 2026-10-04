@@ -188,7 +188,7 @@ gramática y el mismo prefijo. Huecos (`parcial`, `no hecho`): el porqué está 
 | Tique automático al cobrar con interruptor por venta | hecho; impresora de red apagada, sin aviso | F06, F07 |
 | Ancho de papel (58/80 mm) | parcial: se guarda y no cambia el papel | F06 |
 | Tique con QR fiscal y leyenda | hecho (lo pone Ventas) | F07 |
-| Reimpresión como duplicado | hecho desde Ventas; desde Facturas sin marca y por la térmica | F08 |
+| Reimpresión como duplicado | hecho desde Ventas; desde Facturas sin marca (y, en la app instalada, por la térmica) | F08 |
 | Cuenta no fiscal (de mesa o de cliente) | parcial: no avisa si espera en cola sin impresora; impresa directa, cada pulsación saca papel | F09 |
 | Comanda automática por estación | parcial: impresora de red apagada, sin aviso | F10 |
 | Reimprimir la comanda | no hecho | F11 |
@@ -313,7 +313,7 @@ discrepancia; manda el código.
 - **Guion `qa-hub-restaurant` §10** («impresora sin papel/offline: trabajo queda pendiente, reintenta una vez y UI informa estado»): con una impresora de red del propio dispositivo apagada o sin papel, el dispositivo lo intenta 3 veces con 2 s de pausa, solo lo apunta en su registro, la puerta lo da por entregado y el hub lo marca hecho; no queda pendiente ni se informa. Las 5 entregas del hub solo cuentan fallos de antes del envío y desconexiones (F07, F10, F14).
 - **Referencia de mercado** («lo que espera se avisa, recuperarlo no duplica»): la impresión directa no deduplica y la cola entrega «al menos una vez» (F07, F09, F12).
 - **Inventario** (`ui/lib/barcode-print.ts`) da por buena la vía cola sin mirar si alguien la saca, y su botón está en el detalle del producto, no en la lista (F12).
-- **Facturas** (`erp-invoice-list.ts`) manda la factura sin documento para la pantalla ni marca de duplicado; sale por la térmica, no en A4 (F08).
+- **Facturas** (`erp-invoice-list.ts`) manda la factura sin documento para la pantalla ni marca de duplicado; en la app instalada sale por la térmica, no en A4; en un navegador sin impresoras, la factura completa abre el diálogo A4 del navegador (F08).
 - **Botones de solo icono**: «Imprimir cuenta» e «Imprimir» del TPV y del visor de Ventas son iconos con ese texto solo como etiqueta de accesibilidad (F08, F09).
 - **Pestaña del hub «Impresoras y tique»** (`es.ts`) dice «Da de alta tu impresora y configura el tique impreso y digital» y lleva a Impresión; el tique se configura en Ventas (F15).
 - **Retención**: `crates/runtime/src/retention.rs` borra a los 90 días `_event_outbox` y `_flow_runs`; no toca `_print_queue`, y el borrado RGPD tampoco (Datos).

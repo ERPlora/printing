@@ -39,15 +39,12 @@ de que estuviera el QR (la AEAT tardó), «El tique salió antes de que estuvier
 Vuelve a imprimirlo desde la pantalla del tique para darle al cliente el completo.». Se recupera
 reimprimiendo (PRINTING-F08) o dando de alta la impresora (PRINTING-F02). Sin el módulo Impresión
 instalado no sale nada y no se avisa.
-Implicados: pendiente
-Pendiente de enlazar: sales — cobrar un tique (dispara la impresión del tique)
-Pendiente de enlazar: verifactu — registro y QR de cotejo que lleva el tique
-Pendiente de enlazar: invoice — factura simplificada cuyo número sale en el tique
+Implicados: INVOICE-F20, SALES-F01, VERIFACTU-F19, REC_FISCAL-F07
 Pendiente de enlazar: hub — impresión automática del tique al cobrar
 QA: R-09, L-04, qa-hub §8
 
 ### PRINTING-F08 Reimprimir un tique o una factura
-Estado: parcial — desde Facturas la factura sale en la impresora térmica de «Recibo», no en A4, y sin marca de duplicado; la impresora de red apagada pierde el papel sin aviso (F07)
+Estado: parcial — desde Facturas la reimpresión no lleva marca de duplicado, y en la app instalada la factura completa sale por la impresora térmica de «Recibo» (o la cola), no en A4; la impresora de red apagada pierde el papel sin aviso (F07)
 Vertical: comun
 Actor: administrador, responsable, empleado
 Pantalla: Ventas: lista de ventas
@@ -56,8 +53,10 @@ Pasos:
    «Imprimir»).
 2. El sistema vuelve a componer el documento con el número fiscal y el QR y lo envía a la impresora de
    «Recibo»; una factura completa pedida desde Ventas va como A4 al diálogo de impresión del sistema (la
-   impresora láser o «Guardar como PDF»). Desde Facturas no hay diálogo A4: la manda sin documento
-   para la pantalla, así que sale por la térmica de «Recibo» del dispositivo o, si no hay, por la cola.
+   impresora láser o «Guardar como PDF»). Desde Facturas, en la app instalada no hay diálogo A4 (la
+   factura va sin su documento para la pantalla): sale por la térmica de «Recibo» del dispositivo o, si
+   no hay, por la cola; abierta en un navegador, que no llega a las impresoras, una factura completa abre
+   el diálogo de impresión del navegador en A4 y un tique va a la cola (INVOICE-F18).
 3. Desde Ventas sale el papel con la marca de duplicado; desde Facturas, sin ella.
 Entra: la venta o la factura elegida.
 Sale: el papel; ninguna venta ni registro fiscal nuevo. La reimpresión usa un trabajo nuevo cada vez
@@ -65,9 +64,7 @@ Sale: el papel; ninguna venta ni registro fiscal nuevo. La reimpresión usa un t
 Si falla: con una impresora de red del dispositivo apagada no hay aviso (F07). Si no, «No se pudo imprimir» (más el motivo si lo hay); si queda en la cola y no hay ninguna impresora
 dada de alta, «El tique está en espera: aún no hay ninguna impresora dada de alta. Da una de alta y saldrá
 solo.».
-Implicados: pendiente
-Pendiente de enlazar: sales — lista de ventas y visor del tique (reimprimir)
-Pendiente de enlazar: invoice — imprimir una factura desde su lista
+Implicados: INVOICE-F18, SALES-F29
 QA: L-05, L-04
 
 ### PRINTING-F09 Imprimir la cuenta de la mesa
@@ -90,8 +87,7 @@ si sale directa por la impresora del dispositivo, cada pulsación saca una cuent
 suplemento o una nota da una cuenta nueva. La numeración fiscal no se consume: nace al cobrar.
 Si falla: «No se pudo imprimir la cuenta» y, tras dos puntos, el motivo si lo hay. Si va por la cola y
 nadie la drena, o la impresora de red no contesta, el TPV no dice nada y el papel espera hasta dar de alta una impresora de «Recibo».
-Implicados: pendiente
-Pendiente de enlazar: sales — cuenta de la mesa en el TPV (imprimir cuenta)
+Implicados: SALES-F21
 Pendiente de enlazar: tables — mesa abierta cuya cuenta se imprime
 QA: R-08, qa-hub-restaurant §10
 
@@ -133,9 +129,7 @@ Si falla: sin aviso. Si este dispositivo no llega a la impresora, o no hay impre
 la impresora no contesta, el cajón no se abre y nadie lo ve (el error se descarta). El tique no depende
 del cajón y viceversa. El permiso `printing.open_drawer` está en el manifiesto pero ninguna pantalla ni
 comando lo exige.
-Implicados: pendiente
-Pendiente de enlazar: sales — cobro (dispara la apertura del cajón)
-Pendiente de enlazar: cash_register — caja y arqueo (el efectivo que entra al cajón)
+Implicados: SALES-F01, SALES-F02
 Pendiente de enlazar: hub — apertura del cajón por la impresora
 QA: R-09, qa-hub §8
 
@@ -150,6 +144,5 @@ Pasos:
 Entra: el turno cerrado, de Caja.
 Sale: el papel, o un trabajo en la cola.
 Si falla: igual que PRINTING-F07 (aviso y recuperación desde la pantalla de Caja).
-Implicados: pendiente
-Pendiente de enlazar: cash_register — cierre de caja (imprimir el resumen del turno)
+Implicados: CASH_REGISTER-F09
 QA: ninguno

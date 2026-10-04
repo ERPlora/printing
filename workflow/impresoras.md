@@ -25,7 +25,6 @@ pendientes: N (estaciones)» al cerrar el turno.
 Si falla: «No se pudo leer la cola de impresión.» con el código entre paréntesis; no se pinta «Todo al
 día» cuando la lectura falla, pero las tarjetas y trabajos de la lectura anterior siguen a la vista.
 Implicados: pendiente
-Pendiente de enlazar: cash_register — revisión del turno al cerrar la caja (avisa de impresiones pendientes)
 Pendiente de enlazar: hub — cola de impresión y cobertura por función
 QA: qa-hub §8
 
@@ -126,8 +125,7 @@ la cola del dispositivo, que lo intenta 3 veces y lo apunta en su registro; si n
 impresora (o añádela otra vez por IP, que sí comprueba la conexión). El error sale en rojo encima de la
 lista tal como llega (o «Falló la impresión de prueba») solo con Bluetooth, USB o un identificador mal
 formado.
-Implicados: pendiente
-Pendiente de enlazar: sales — ajustes del tique (la cabecera da el nombre de la hoja de prueba)
+Implicados: SALES-F34
 QA: qa-hub §8
 
 ### PRINTING-F06 Elegir cómo imprime el negocio
@@ -153,8 +151,7 @@ responsable y con ella se guarda. Si el guardado falla, el mensaje del servidor 
 como llega, o «No se pudo guardar». Si no se pueden leer los ajustes, debajo del botón sale «No se
 pudieron cargar los ajustes» (o el mensaje del servidor) y el formulario se queda con los de fábrica.
 Los ajustes que no se guardan no se pierden de la pantalla: siguen en el formulario.
-Implicados: pendiente
-Pendiente de enlazar: sales — hoja de cobro (el interruptor «Imprimir tiquet» arranca con el ajuste de este flujo)
+Implicados: SALES-F01, REC_FISCAL-F07
 QA: R-09, qa-hub §8
 
 ### PRINTING-F15 Llevar el texto antiguo del tique a Ventas
@@ -177,6 +174,5 @@ Si falla: si la persona no tiene el permiso de cambiar los ajustes de Ventas, la
 paréntesis si lo hay; el texto sigue en pantalla). Si Ventas no está instalado, el recuadro no tiene
 botón y el texto se queda a la vista para copiarlo. Si la lectura posterior no encuentra el texto en
 Ventas, también falla («receipt_text_not_applied»).
-Implicados: pendiente
-Pendiente de enlazar: sales — ajustes del tique (cabecera y pie) y su traslado desde Impresión
+Implicados: SALES-F34
 QA: ninguno
