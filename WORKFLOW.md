@@ -15,8 +15,8 @@ listas: dar de alta una impresora, decir para qué sirve (tique, cocina, barra, 
 elegir si el tique sale solo al cobrar y si el cajón se abre con él, y sacar del atasco un trabajo que
 no salió. La usan el **administrador** y el **responsable** (montan y arreglan), y el **empleado** de
 caja (consulta el estado y reimprime desde Ventas). Sirve a los dos negocios: la peluquería y el
-restaurante imprimen el tique y las etiquetas igual; la comanda de cocina y la cuenta de la mesa son
-solo del restaurante.
+restaurante imprimen el tique y las etiquetas igual; la comanda de cocina es solo del restaurante y la cuenta
+(precuenta) sale del TPV común, con o sin mesa.
 
 **Qué es del módulo y qué es del hub.** El módulo es pequeño: una pantalla («Impresoras»), una
 consulta de ajustes, dos comandos (guardar ajustes, pedir una impresión) y un aviso
@@ -24,7 +24,7 @@ consulta de ajustes, dos comandos (guardar ajustes, pedir una impresión) y un a
 
 | Pieza | Dónde vive |
 |---|---|
-| Cola de trabajos (`pendiente → imprimiendo → hecho / muerto / retirado`, 5 entregas, 90 s de arrendamiento, deduplicación por `jobId`) | Hub, `crates/runtime/src/print_queue.rs` |
+| Cola de trabajos (`pendiente → imprimiendo → hecho / muerto / retirado`, 5 entregas, 90 s de arrendamiento, deduplicación por `jobId` solo en esta cola) | Hub, `crates/runtime/src/print_queue.rs` |
 | Qué impresora de qué documento (mapa documento → estación, estaciones `receipt`, `kitchen`, `bar`, `label`) | Hub, `print_routes.rs` y `print_stations.rs` |
 | Dispositivo que saca el papel (se da de alta solo como «host» de los roles de sus impresoras y reclama trabajos) | App instalada, `apps/web/src/lib/print-host*.ts`, `print-drain.ts` |
 | Envío ESC/POS por red (puerto 9100), cola USB del sistema, Bluetooth (solo Android), página de prueba y cajón | Hub, `crates/peripherals`, y la app `apps/tauri` |
@@ -46,7 +46,8 @@ Ya contrastada en `.claude/agents/qa-hub-restaurant.md` §2 (10/08/2026) y su se
   comanda no se desvía a la impresora de tiques.
 - [Toast — modo offline](https://doc.toasttab.com/doc/platformguide/platformOfflineMode.html) y
   [Square — modo offline](https://squareup.com/help/es/es/article/7777-process-card-payments-with-offline-mode):
-  un trabajo que no puede salir **espera** y se avisa; recuperarlo no duplica.
+  la idea de que un trabajo que no puede salir **espera** y se avisa; lo que ERPlora hace hoy, y dónde no
+  avisa, está en F07, F09, F10 y F12.
 - [AEAT — SIF y VERI*FACTU](https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu.html):
   el tique lleva el QR de cotejo; la reimpresión es copia (guion `L-04`, `L-05`).
 - Cuenta de la mesa: papel no fiscal, sin serie ni QR y con aviso de que no es factura (guion `R-08`).
@@ -83,7 +84,9 @@ Configuración inicial, paso a paso:
 Menú **Impresión → Impresoras** (la entrada se llama «Impresoras»; es la única del módulo y la ve
 cualquiera que tenga el módulo, sin filtro de permiso en el menú). Título «Impresoras» y la frase
 «Configura la impresión de tickets y las impresoras encontradas en esta red.». Debajo, tres zonas en
-este orden:
+este orden (desde la lectura de la cola se pintan solo las funciones con algún dispositivo dado de alta o
+trabajos esperando: un negocio nuevo no ve ninguna tarjeta; si un refresco falla, lo anterior sigue a la
+vista):
 
 - **Cola de impresión**, con el botón «Refrescar» («Refrescando…» mientras lee). Se vuelve a leer sola
   cada 30 segundos mientras la pestaña está visible. Pinta:
@@ -93,14 +96,14 @@ este orden:
     dispositivo cubre todavía este rol: asigna este rol a una impresora de la lista de abajo y este
     dispositivo lo imprimirá.»; si es un navegador, «Ningún dispositivo de este rol está conectado:
     instala la app de ERPlora en el dispositivo conectado a la impresora y abre tu negocio desde ahí.»;
-  - una tarjeta por función (Recibo, Cocina, Barra, Etiqueta) con su estado «Listo», «En cola, sin
+  - una tarjeta por cada función que tenga algún dispositivo o trabajos (Recibo, Cocina, Barra, Etiqueta) con su estado «Listo», «En cola, sin
     impresora» o «Sin impresora conectada», «En cola: N · el más antiguo lleva 3 min» y «Imprime desde:
     Caja 1.» (o «Imprime desde N dispositivos.»);
   - cada trabajo atascado o en curso como «Recibo T-000123» (o «Recibo · 26/9/26, 23:05» si el
     documento no trae número) con su estado «Pendiente», «Imprimiendo» o «Muerto», la estación, «esperando 3 min»,
     «Último error: …» y «intentos: N»;
   - para quien administra el hub, los botones «Reintentar» y «Descartar» de cada trabajo, y debajo
-    «Retirados recientemente» (los últimos 20, con «Retirado por Ana · fecha» y «Motivo: …»);
+    «Retirados recientemente» (los últimos 20, con «Retirado por Ana desde printing · fecha» y «Motivo: …»);
   - con la cola vacía: «Todo al día: la cola está vacía y hay N dispositivos conectados.» (o «…1
     dispositivo conectado.»), o, sin ningún dispositivo, «Ahora mismo no hay nada en cola. No hay ningún
     dispositivo de impresión conectado: los trabajos nuevos quedarán en la cola hasta que uno se
@@ -113,7 +116,8 @@ este orden:
   antes de que el tique pasara a los ajustes de Ventas, así que no sale en ningún papel. Llévalo allí
   para usarlo:» con el texto y el botón «Llevarlo a los ajustes del tique»; después, «Ancho de papel»
   (80 mm o 58 mm), el interruptor «Imprimir ticket al cobrar», el interruptor «Abrir cajón al cobrar»,
-  el botón «Guardar ajustes» («Guardando…») y «✓ Guardado». No hay indicador de carga: hasta que
+  el botón «Guardar ajustes» («Guardando…») y «✓ Guardado». Si no se pueden leer los ajustes, debajo del botón sale «No se pudieron cargar los ajustes»
+  (o el mensaje del servidor). No hay indicador de carga: hasta que
   llegan los ajustes se ven los de fábrica (80 mm, tique al cobrar encendido, cajón apagado).
 - **Impresoras en la red**, con «Re-escanear» («Escaneando…»). Dice «Este dispositivo puede llegar a
   las impresoras · vX.Y.Z.» o, en un navegador, «Desde el navegador, este dispositivo no puede llegar a
@@ -124,7 +128,8 @@ este orden:
   impresora por IP» (solo en la app instalada).
 
 Los errores del hardware (escaneo, rol, prueba) salen en rojo encima de la lista con el mensaje tal como
-llega; si no llega mensaje, «Error al escanear», «No se pudo asignar el rol» o «Falló la impresión de
+llega (con una impresora de red, la prueba no da error si la impresora no contesta: F05; si el sistema niega
+el permiso de red local, sale «local network access denied (…)» sin traducir); si no llega mensaje, «Error al escanear», «No se pudo asignar el rol» o «Falló la impresión de
 prueba». Los fallos de guardar ajustes salen debajo del botón: el mensaje del servidor tal cual, o «No
 se pudo guardar». No hay estado «cargando» propio de los ajustes (la clave «Cargando…» existe y la
 pantalla no la usa).
@@ -140,7 +145,7 @@ pantalla no la usa).
 | Función «Recibo» (tique, factura, cuenta de mesa, cierre de caja) | PRINTING-F07, PRINTING-F08, PRINTING-F09, PRINTING-F17 |
 
 Las `Vertical:` de cada flujo dicen cuál se rompe al tocarlo: tocar uno `comun` afecta a peluquería y a
-restaurante; los `restaurante` (PRINTING-F09, PRINTING-F10, PRINTING-F11) no deben afectar a
+restaurante; los `restaurante` (PRINTING-F10, PRINTING-F11) no deben afectar a
 peluquería.
 
 ## Flujos
@@ -154,14 +159,14 @@ gramática y el mismo prefijo. Huecos (`parcial`, `no hecho`): el porqué está 
 | PRINTING-F02 | Encontrar y dar de alta una impresora de la red | parcial | [workflow/impresoras.md](workflow/impresoras.md) |
 | PRINTING-F03 | Añadir una impresora por su IP | hecho | [workflow/impresoras.md](workflow/impresoras.md) |
 | PRINTING-F04 | Asignar qué sale por cada impresora | parcial | [workflow/impresoras.md](workflow/impresoras.md) |
-| PRINTING-F05 | Hacer una prueba de impresión | hecho | [workflow/impresoras.md](workflow/impresoras.md) |
+| PRINTING-F05 | Hacer una prueba de impresión | parcial | [workflow/impresoras.md](workflow/impresoras.md) |
 | PRINTING-F06 | Elegir cómo imprime el negocio | parcial | [workflow/impresoras.md](workflow/impresoras.md) |
-| PRINTING-F07 | Imprimir el tique al cobrar | hecho | [workflow/documentos.md](workflow/documentos.md) |
-| PRINTING-F08 | Reimprimir un tique o una factura | hecho | [workflow/documentos.md](workflow/documentos.md) |
+| PRINTING-F07 | Imprimir el tique al cobrar | parcial | [workflow/documentos.md](workflow/documentos.md) |
+| PRINTING-F08 | Reimprimir un tique o una factura | parcial | [workflow/documentos.md](workflow/documentos.md) |
 | PRINTING-F09 | Imprimir la cuenta de la mesa | parcial | [workflow/documentos.md](workflow/documentos.md) |
-| PRINTING-F10 | Imprimir la comanda en cocina y barra | hecho | [workflow/cocina-y-cola.md](workflow/cocina-y-cola.md) |
+| PRINTING-F10 | Imprimir la comanda en cocina y barra | parcial | [workflow/cocina-y-cola.md](workflow/cocina-y-cola.md) |
 | PRINTING-F11 | Reimprimir una comanda | no hecho | [workflow/cocina-y-cola.md](workflow/cocina-y-cola.md) |
-| PRINTING-F12 | Imprimir la etiqueta de un código de barras | hecho | [workflow/documentos.md](workflow/documentos.md) |
+| PRINTING-F12 | Imprimir la etiqueta de un código de barras | parcial | [workflow/documentos.md](workflow/documentos.md) |
 | PRINTING-F13 | Abrir el cajón al cobrar | parcial | [workflow/documentos.md](workflow/documentos.md) |
 | PRINTING-F14 | Sacar del atasco un trabajo de impresión | hecho | [workflow/cocina-y-cola.md](workflow/cocina-y-cola.md) |
 | PRINTING-F15 | Llevar el texto antiguo del tique a Ventas | hecho | [workflow/impresoras.md](workflow/impresoras.md) |
@@ -175,22 +180,22 @@ gramática y el mismo prefijo. Huecos (`parcial`, `no hecho`): el porqué está 
 | Buscar impresoras de red y darlas de alta | hecho | F02 |
 | Añadir una impresora por IP | hecho | F03 |
 | Impresora de red y Bluetooth emparejada (Android) | hecho | F02, F03 |
-| Impresora USB (ordenador) | parcial: sale en la lista; el shell no la usa para imprimir ni para drenar la cola | F02 |
+| Impresora USB (ordenador) | parcial: sale en la lista y recibe la hoja de prueba; no recibe tique, comanda ni cola | F02 |
 | Una función por impresora (recibos, cocina, barra, etiquetas) | hecho | F04 |
 | Qué documento sale por qué función | parcial: mapa del hub sin pantalla | F04 |
 | Quitar la función de una impresora | no hecho | F04 |
-| Hoja de prueba | hecho | F05 |
-| Tique automático al cobrar con interruptor por venta | hecho | F06, F07 |
+| Hoja de prueba | parcial: con impresora de red apagada no da error | F05 |
+| Tique automático al cobrar con interruptor por venta | hecho; impresora de red apagada, sin aviso | F06, F07 |
 | Ancho de papel (58/80 mm) | parcial: se guarda y no cambia el papel | F06 |
 | Tique con QR fiscal y leyenda | hecho (lo pone Ventas) | F07 |
-| Reimpresión como duplicado | hecho | F08 |
-| Cuenta de la mesa no fiscal | parcial: no avisa si espera en cola sin impresora | F09 |
-| Comanda automática por estación | hecho | F10 |
+| Reimpresión como duplicado | hecho desde Ventas; desde Facturas sin marca y por la térmica | F08 |
+| Cuenta no fiscal (de mesa o de cliente) | parcial: no avisa si espera en cola sin impresora; impresa directa, cada pulsación saca papel | F09 |
+| Comanda automática por estación | parcial: impresora de red apagada, sin aviso | F10 |
 | Reimprimir la comanda | no hecho | F11 |
-| Etiqueta de código de barras | hecho | F12 |
+| Etiqueta de código de barras | parcial: sin impresora «Etiqueta», espera sin aviso | F12 |
 | Cajón al cobrar | hecho para cualquier pago; solo efectivo no existe | F13 |
 | Apertura manual del cajón («sin venta») con permiso y registro | no hecho | F13 |
-| Aviso visible cuando el papel no sale (tique, comanda) | hecho; cuenta de mesa y cajón, no | F07, F09, F10, F13 |
+| Aviso visible cuando el papel no sale | parcial: avisa si no hay impresora ni cola, si espera sin nadie que lo saque o si no se pudo componer; no avisa si la impresora de red del dispositivo está apagada, ni en cuenta de mesa en cola, etiqueta en cola y cajón | F07, F09, F10, F12, F13 |
 | Cola con recuperación (reintentar, descartar con motivo y sello) | hecho | F14 |
 | Cobertura por función («nadie imprime cocina») | hecho | F01 |
 | Cierre de caja impreso | no hecho | F17 |
@@ -221,33 +226,39 @@ gramática y el mismo prefijo. Huecos (`parcial`, `no hecho`): el porqué está 
     cliente;
   - el aviso `printing.print.due` y la cola del hub llevan el **documento entero** que se imprime (un
     tique o una factura con el nombre, el NIF o la dirección del cliente, o la comanda con la mesa y el
-    camarero): no se guarda en el módulo, vive en la cola del hub y en el registro de avisos del hub;
-    sin confirmar cuánto tiempo se conservan los trabajos ya impresos;
-  - la cola del hub guarda además, por trabajo retirado o reintentado, quién lo hizo (identificador y
-    nombre de la persona) y el motivo escrito a mano, que puede contener datos personales.
+    camarero): no se guarda en el módulo, vive en la cola del hub y en el registro de avisos del hub.
+    Los trabajos de la cola, con el documento entero, se conservan sin límite y el borrado RGPD de un
+    cliente no los toca; el aviso `printing.print.due` se borra a los 90 días;
+  - la cola del hub guarda además, por trabajo retirado o reintentado, quién lo hizo (solo el
+    identificador de la persona; el nombre se resuelve al leer) y el motivo escrito a mano, que puede
+    contener datos personales;
+  - el hub guarda también qué empleado dio de alta cada dispositivo de impresión y el nombre del
+    dispositivo.
 
 ## Reglas que no se rompen
 
 - **Aislamiento**: toda lectura y escritura del módulo va con el hub; el identificador de trabajo es
   único por hub (el mismo `jobId` en dos hubs son dos trabajos).
-- **Un mismo trabajo no se duplica**: la petición de impresión y la cola del hub ignoran un `jobId`
-  repetido; el papel sale una vez.
+- **La cola del hub ignora un `jobId` repetido** (por hub). Es lo único que impide un duplicado: la
+  impresión directa del dispositivo no deduplica, y un dispositivo que imprime y se cae antes de confirmar
+  hace que el trabajo salga dos veces (la cola entrega «al menos una vez»).
 - **Valores de los ajustes**: ancho 80 o 58, y los tres interruptores 0 o 1; el esquema los exige y los
   cuatro campos son obligatorios en cada guardado. El guardado no escribe nunca la cabecera ni el pie
   (el texto antiguo sobrevive hasta que se traslada a Ventas).
 - **Permisos**: ver los ajustes exige ver ajustes, guardarlos exige gestionarlos, pedir una impresión
-  exige imprimir; el empleado puede ver e imprimir y no gestionar. Reintentar y descartar exigen ser
+  exige imprimir; el empleado puede ver e imprimir, y al guardar ajustes la caja le pide la aprobación (PIN)
+  del responsable. Reintentar y descartar exigen ser
   administrador del hub y que el módulo tenga concedido el permiso de impresora. El servidor lo aplica
   aunque la pantalla enseñe el control.
 - **Permiso de impresora del módulo**: sin él concedido, un trabajo pedido por el asistente o un flujo no
-  llega a la cola.
+  llega a la cola: queda en Sistema › Eventos caídos y se encola solo al conceder el permiso.
 - **Fiscal**: el módulo no imprime ni inventa nada fiscal. El papel del cobro lo compone Ventas con la
   factura y el registro VeriFactu; la cuenta de la mesa se construye sin número, sin QR y sin pago, y
   con aviso de que no es una factura.
-- **Una venta o una comanda no se caen por la impresión**: un fallo se avisa, el papel espera en la cola
-  del hub y no se pierde.
-- **Solo imprime la caja que cobró o disparó**: con varias cajas abiertas, un cobro o una comanda sale
-  una vez (el hub marca qué pestaña lo hizo).
+- **Una venta o una comanda no se caen por la impresión**: el cobro y el disparo del pedido siguen aunque
+  el papel falle (el papel sí puede perderse sin aviso: F07, F10).
+- **Solo imprime la caja que cobró o disparó**: con varias cajas abiertas, solo imprime la que cobró o
+  disparó (el hub marca qué pestaña lo hizo).
 - **Nada se borra de la cola**: reintentar y descartar sellan quién, cuándo y por qué; un trabajo
   retirado queda en el historial.
 
@@ -264,7 +275,9 @@ gramática y el mismo prefijo. Huecos (`parcial`, `no hecho`): el porqué está 
 - No imprime el cierre de caja, el albarán ni el documento genérico (el hub sabe pintarlos, ningún
   módulo los pide).
 - No reimprime comandas.
-- No emite aviso de «impreso» ni de «fallido»: nadie puede reaccionar al resultado de un trabajo.
+- No emite aviso de «impreso» ni de «fallido»: nadie puede reaccionar al resultado de un trabajo, y una
+  impresora de red apagada no deja rastro.
+- No aprueba por sí solo los cambios de ajustes de quien no tiene permiso: lo hace el PIN del responsable.
 
 ## Dudas abiertas
 
@@ -297,7 +310,13 @@ discrepancia; manda el código.
 - **`architecture/modules/printing.md`** dice que `print_kitchen` sigue siendo contrato; el campo lo exige el esquema y lo lee nadie (F06).
 - **Guion `qa-hub-restaurant` §10 y §2 («Cajón solo en efectivo»; «sin venta» con permiso y auditado)**: el cajón se abre con cualquier forma de pago y no existe «sin venta» (F13).
 - **Guion `R-08`** («si no sale papel, el TPV lo dice»): no lo dice cuando la cuenta queda en la cola sin impresora (F09).
-- **Guion `qa-hub-restaurant` §10** («impresora sin papel/offline: trabajo queda pendiente, reintenta una vez»): el hub entrega cada trabajo hasta 5 veces antes de darlo por muerto, no una (F14).
+- **Guion `qa-hub-restaurant` §10** («impresora sin papel/offline: trabajo queda pendiente, reintenta una vez y UI informa estado»): con una impresora de red del propio dispositivo apagada o sin papel, el dispositivo lo intenta 3 veces con 2 s de pausa, solo lo apunta en su registro, la puerta lo da por entregado y el hub lo marca hecho; no queda pendiente ni se informa. Las 5 entregas del hub solo cuentan fallos de antes del envío y desconexiones (F07, F10, F14).
+- **Referencia de mercado** («lo que espera se avisa, recuperarlo no duplica»): la impresión directa no deduplica y la cola entrega «al menos una vez» (F07, F09, F12).
+- **Inventario** (`ui/lib/barcode-print.ts`) da por buena la vía cola sin mirar si alguien la saca, y su botón está en el detalle del producto, no en la lista (F12).
+- **Facturas** (`erp-invoice-list.ts`) manda la factura sin documento para la pantalla ni marca de duplicado; sale por la térmica, no en A4 (F08).
+- **Botones de solo icono**: «Imprimir cuenta» e «Imprimir» del TPV y del visor de Ventas son iconos con ese texto solo como etiqueta de accesibilidad (F08, F09).
+- **Pestaña del hub «Impresoras y tique»** (`es.ts`) dice «Da de alta tu impresora y configura el tique impreso y digital» y lleva a Impresión; el tique se configura en Ventas (F15).
+- **Retención**: `crates/runtime/src/retention.rs` borra a los 90 días `_event_outbox` y `_flow_runs`; no toca `_print_queue`, y el borrado RGPD tampoco (Datos).
 - **Textos en inglés en la pantalla española**: la lista de impresoras pinta tal cual la palabra del estado cuando no es «ready», «stopped» o «unknown» (el hub documenta también `busy`, `error` y `offline`), y el error del hardware o del guardado se pinta con el mensaje que llega, sin traducir (pantalla Impresoras, F02, F05, F06).
 - **La clave `ui.loading` («Cargando…»)** existe en `locales/es.json` y la pantalla no la usa.
 - **USB**: `crates/peripherals` y la app listan y registran las impresoras USB del sistema; `apps/web/src/lib/print.ts` solo resuelve como destino las de red y las Bluetooth con MAC, y el alta como host usa la misma regla (F02, F04, F13).

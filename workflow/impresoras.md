@@ -11,23 +11,26 @@ Actor: administrador, responsable, empleado
 Pantalla: Impresoras
 Pasos:
 1. Abre **Impresión → Impresoras**.
-2. Lee las tarjetas de función y la lista de trabajos; «Refrescar» vuelve a leer al momento (si no, lo
+2. Lee las tarjetas de función (una por cada función que tenga algún dispositivo dado de alta o trabajos
+   esperando; un negocio nuevo no ve ninguna) y la lista de trabajos; «Refrescar» vuelve a leer al momento (si no, lo
    hace sola cada 30 segundos).
 3. Si una función sale «En cola, sin impresora» o hay un aviso naranja, el papel no está saliendo: sigue
    por PRINTING-F04 (asignar la función) o PRINTING-F14 (sacar el trabajo del atasco).
 Entra: la cobertura por función y la cola, que calcula el hub (consultas del hub, no del módulo); se
 leen con cualquier sesión del puesto, no hace falta ser administrador.
-Sale: nada guardado. El cierre de caja de Caja repasa esta misma cobertura y avisa «Impresiones
+Sale: nada guardado. La misma cobertura se ve también en Ajustes › Impresión («Estado de impresión»), en
+el panel y en Sistema. La cola solo sabe de lo que llegó al hub: un tique que salió por la impresora de
+red del propio dispositivo no pasa por ella y no aparece aunque esa impresora estuviera apagada. El cierre de caja de Caja repasa esta misma cobertura y avisa «Impresiones
 pendientes: N (estaciones)» al cerrar el turno.
 Si falla: «No se pudo leer la cola de impresión.» con el código entre paréntesis; no se pinta «Todo al
-día» cuando la lectura falla.
+día» cuando la lectura falla, pero las tarjetas y trabajos de la lectura anterior siguen a la vista.
 Implicados: pendiente
 Pendiente de enlazar: cash_register — revisión del turno al cerrar la caja (avisa de impresiones pendientes)
 Pendiente de enlazar: hub — cola de impresión y cobertura por función
 QA: qa-hub §8
 
 ### PRINTING-F02 Encontrar y dar de alta una impresora de la red
-Estado: parcial — una impresora USB (ordenador) sale en la lista y admite función, pero la puerta de impresión del shell y el alta como host solo cuentan las de red y las Bluetooth con MAC: sin confirmar que una USB reciba trabajos
+Estado: parcial — una impresora USB (ordenador) sale en la lista y admite función, pero no recibe ningún tique, comanda ni trabajo de la cola (solo la hoja de prueba)
 Vertical: comun
 Actor: administrador, responsable, empleado
 Pantalla: Impresoras
@@ -40,11 +43,14 @@ Pasos:
 Entra: lo que encuentra la app del dispositivo (búsqueda mDNS y barrido de la subred por el puerto
 9100, más USB y Bluetooth).
 Sale: la impresora queda en el registro de la app de este dispositivo, no en la base de datos del hub.
+Una impresora USB con función nunca recibe tique, comanda ni trabajos de la cola: la puerta de impresión
+del shell y el alta como host solo aceptan impresoras con dirección de red o Bluetooth con MAC.
 Si falla: desde un navegador, «Desde el navegador, este dispositivo no puede llegar a las impresoras…»;
 sin resultados, «No se encontraron impresoras de red (puerto 9100) en esta subred.» (cero impresoras
 puede ser cortafuegos, otra red o impresora apagada: pasa a PRINTING-F03). Un error de escaneo sale en
-rojo con el mensaje tal como llega. Sin confirmar: qué ve la persona si el sistema operativo niega el
-permiso de red local (el hub lo distingue de «no hay impresoras», la pantalla del módulo no lo nombra).
+rojo con el mensaje tal como llega. Si el sistema operativo niega el permiso de red local, sale en rojo
+«local network access denied (…)» sin traducir y debajo «No se encontraron impresoras de red (puerto 9100)
+en esta subred.».
 Implicados: pendiente
 Pendiente de enlazar: hub — búsqueda de impresoras y registro de dispositivos de la app instalada
 QA: qa-hub §8, qa-hub-android §15
@@ -83,10 +89,11 @@ Pasos:
 1. En la tarjeta de la impresora abre el desplegable «Rol».
 2. Elige «Recibo» (tique, factura, cuenta de la mesa y cierre de caja), «Cocina» (comandas), «Barra»
    (comandas de la barra) o «Etiqueta» (etiquetas de código de barras).
-3. La función queda asignada a esa impresora **en este dispositivo**; en unos segundos este dispositivo
-   se da de alta solo en el hub como quien imprime esa función, y la tarjeta de la función pasa a
+3. La función queda asignada a esa impresora **en este dispositivo**; en la siguiente pasada (hasta 30
+   segundos) este dispositivo se da de alta solo en el hub como quien imprime esa función, y la tarjeta de la función pasa a
    «Listo» con «Imprime desde: <nombre del dispositivo>.».
-Entra: la impresora elegida y la función.
+Entra: la impresora elegida y la función. Si el dispositivo solo tiene una impresora de red y ninguna
+función asignada en todo su registro, al abrir la app se le pone «Recibo» sola.
 Sale: la función en el registro de la app de este dispositivo; el dispositivo se anuncia al hub como
 «host» de esa función y repite el aviso cada 30 segundos (el hub lo da por vivo 90 s). Qué documento sale
 por qué función lo decide el hub, que de fábrica manda el tique, la factura, el albarán, la cuenta de la
@@ -95,15 +102,15 @@ mesa, el cierre de caja y el documento genérico a «Recibo», la comanda a «Co
 Si falla: si la impresora parece de oficina (A4), sale el aviso «Esta impresora parece de oficina (A4) y
 no entiende tickets. Los tiques y comandas necesitan una impresora térmica.» y la función se asigna igual
 (es un aviso, no un bloqueo). Un error al asignar sale en rojo tal como llega, o «No se pudo asignar el
-rol». Una impresora sin función no recibe nada: su trabajo espera en la cola hasta que alguien tenga la
-función.
+rol». Una impresora sin función no recibe nada de la caja ni de la cola, y una USB tampoco lo recibe aunque
+la tenga (F02); un trabajo sin nadie con esa función espera en la cola.
 Implicados: pendiente
 Pendiente de enlazar: hub — mapa documento → función y registro de «hosts» de impresión
 Pendiente de enlazar: kitchen — estaciones de cocina y barra y la función de impresora de cada una
 QA: qa-hub §8
 
 ### PRINTING-F05 Hacer una prueba de impresión
-Estado: hecho
+Estado: parcial — con una impresora de red, «Probar» no avisa si la impresora no contesta
 Vertical: comun
 Actor: administrador, responsable, empleado
 Pantalla: Impresoras
@@ -114,14 +121,17 @@ Pasos:
 Entra: la impresora y el idioma de la pantalla; el nombre del negocio es la primera línea de la cabecera
 del tique de Ventas o, si no hay, el nombre fiscal del negocio.
 Sale: nada guardado; la hoja va directa a la impresora, no pasa por la cola.
-Si falla: el error de la impresora sale en rojo encima de la lista tal como llega (o «Falló la impresión
-de prueba»). La prueba no avisa de nada más: si sale la hoja, la impresora funciona.
+Si falla: con una impresora de red, «Probar» no avisa si la impresora no contesta: la hoja solo entra en
+la cola del dispositivo, que lo intenta 3 veces y lo apunta en su registro; si no sale la hoja, revisa la
+impresora (o añádela otra vez por IP, que sí comprueba la conexión). El error sale en rojo encima de la
+lista tal como llega (o «Falló la impresión de prueba») solo con Bluetooth, USB o un identificador mal
+formado.
 Implicados: pendiente
 Pendiente de enlazar: sales — ajustes del tique (la cabecera da el nombre de la hoja de prueba)
 QA: qa-hub §8
 
 ### PRINTING-F06 Elegir cómo imprime el negocio
-Estado: parcial — el «Ancho de papel» se guarda pero nada lo lee (el papel no cambia); los controles se enseñan a quien no tiene permiso de cambiarlos y el servidor lo rechaza con un mensaje sin traducir
+Estado: parcial — el «Ancho de papel» se guarda pero nada lo lee (el papel no cambia)
 Vertical: comun
 Actor: administrador, responsable
 Pantalla: Impresoras
@@ -138,8 +148,10 @@ apagado, 80 mm; lo que ve la pantalla es lo que obedece la caja. «Imprimir tick
 cajón al cobrar» los lee el shell en cada cobro (PRINTING-F07, PRINTING-F13) y el interruptor «Imprimir
 tiquet» de la hoja de cobro de Ventas arranca con el valor guardado aquí. El ancho de papel y el
 interruptor de cocina no los lee nadie en `origin/main` (ni el hub ni ningún módulo).
-Si falla: el mensaje del servidor sale debajo del botón tal como llega (un empleado, que no tiene el
-permiso de cambiar ajustes, ve los mismos controles y recibe aquí el rechazo), o «No se pudo guardar».
+Si falla: un empleado ve los mismos controles; al guardar, la caja pide la aprobación (PIN) del
+responsable y con ella se guarda. Si el guardado falla, el mensaje del servidor sale debajo del botón tal
+como llega, o «No se pudo guardar». Si no se pueden leer los ajustes, debajo del botón sale «No se
+pudieron cargar los ajustes» (o el mensaje del servidor) y el formulario se queda con los de fábrica.
 Los ajustes que no se guardan no se pierden de la pantalla: siguen en el formulario.
 Implicados: pendiente
 Pendiente de enlazar: sales — hoja de cobro (el interruptor «Imprimir tiquet» arranca con el ajuste de este flujo)
@@ -152,14 +164,16 @@ Actor: administrador, responsable
 Pantalla: Impresoras
 Pasos:
 1. Si el negocio escribió una cabecera o un pie en Impresión antes de que el tique pasara a Ventas, la
-   pantalla muestra el recuadro con ese texto.
+   pantalla muestra el recuadro con ese texto, mientras esa cabecera o ese pie sigan vacíos en Ventas (o si
+   Ventas no está instalado); si Ventas ya los tiene, el texto antiguo no se ve.
 2. Pulsa «Llevarlo a los ajustes del tique» («Llevando…»).
 3. Sale «Hecho. Tu tique ya lo lleva.» y el recuadro desaparece.
 Entra: la cabecera y el pie antiguos de Impresión.
 Sale: en los ajustes de Ventas solo se rellena lo que allí está vacío; nunca pisa una cabecera o un pie ya
 escritos. Para escribir la cabecera o el pie nuevos hay que ir a Ventas con «Abrir los ajustes del
 tique»; este módulo ya no los guarda.
-Si falla: «No se ha podido llevar el texto. Cópialo a mano en los ajustes del tique.» (con el código entre
+Si falla: si la persona no tiene el permiso de cambiar los ajustes de Ventas, la caja pide la aprobación
+(PIN) del responsable. «No se ha podido llevar el texto. Cópialo a mano en los ajustes del tique.» (con el código entre
 paréntesis si lo hay; el texto sigue en pantalla). Si Ventas no está instalado, el recuadro no tiene
 botón y el texto se queda a la vista para copiarlo. Si la lectura posterior no encuentra el texto en
 Ventas, también falla («receipt_text_not_applied»).

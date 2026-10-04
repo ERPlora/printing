@@ -5,7 +5,7 @@ Prefijo: PRINTING
 ## Flujos
 
 ### PRINTING-F07 Imprimir el tique al cobrar
-Estado: hecho
+Estado: parcial — si la impresora de red del dispositivo está apagada o sin papel, el papel se pierde sin ningún aviso y el hub lo da por impreso
 Vertical: comun
 Actor: empleado, sistema
 Pantalla: Ventas: Cobro
@@ -20,11 +20,18 @@ Pasos:
    dispositivo no llega a ninguna, se encola en el hub y lo imprime el dispositivo que tenga esa función.
 Entra: el cobro (de Ventas); el ajuste «Imprimir ticket al cobrar»; el documento lo compone Ventas con
 sus ajustes (cabecera, pie), la factura y el registro VeriFactu.
-Sale: el papel, o un trabajo en la cola (clave `sale-<id>`: el mismo cobro repetido es un solo tique). El
+Sale: el papel, o un trabajo en la cola del hub (clave `sale-<id>`: la cola ignora un `jobId` repetido; la
+impresión directa del dispositivo no deduplica nada). El
 QR fiscal y la leyenda `VERI*FACTU` los pone Ventas con el dato del registro fiscal: este módulo no los
 pone ni los cambia (PRINTING-F08 recoge lo que va en el papel). Una venta hecha por la API o por un flujo
 no la imprime ninguna caja.
-Si falla: la venta nunca se cae por la impresión. La persona ve un aviso: «El tique NO se imprimió. Vuelve
+Si falla: la venta nunca se cae por la impresión, pero el papel sí puede perderse sin aviso. Con la
+impresora de red del propio dispositivo apagada o sin papel, el dispositivo solo deja el trabajo en una
+cola suya, lo intenta 3 veces con 2 s de pausa y, si fallan, lo apunta en su registro: la puerta lo da por
+entregado, no sale aviso y, si venía de la cola del hub, el hub lo marca hecho. Los avisos solo saltan
+cuando no hay impresora ni cola, cuando el papel espera sin nadie que lo saque o cuando el tique no se pudo
+componer. Las 5 entregas del hub solo cuentan fallos anteriores al envío (sin impresora con esa función en
+el dispositivo, Bluetooth o USB caídos) y desconexiones del dispositivo. La persona ve un aviso: «El tique NO se imprimió. Vuelve
 a imprimirlo desde la pantalla del tique.»; «El tique está en espera: aún no hay ninguna impresora dada de
 alta. Da una de alta y saldrá solo.» (el trabajo no se pierde, sale al dar de alta una);
 «El tique no se pudo preparar y NO se imprimió. Imprímelo desde la pantalla del tique.»; o, si salió antes
@@ -40,7 +47,7 @@ Pendiente de enlazar: hub — impresión automática del tique al cobrar
 QA: R-09, L-04, qa-hub §8
 
 ### PRINTING-F08 Reimprimir un tique o una factura
-Estado: hecho
+Estado: parcial — desde Facturas la factura sale en la impresora térmica de «Recibo», no en A4, y sin marca de duplicado; la impresora de red apagada pierde el papel sin aviso (F07)
 Vertical: comun
 Actor: administrador, responsable, empleado
 Pantalla: Ventas: lista de ventas
@@ -49,13 +56,13 @@ Pasos:
    «Imprimir»).
 2. El sistema vuelve a componer el documento con el número fiscal y el QR y lo envía a la impresora de
    «Recibo»; una factura completa pedida desde Ventas va como A4 al diálogo de impresión del sistema (la
-   impresora láser o «Guardar como PDF»). Facturas manda la suya por la misma puerta; sin confirmar el
-   papel final de una factura completa impresa desde su lista.
-3. Sale el papel con la marca de duplicado.
+   impresora láser o «Guardar como PDF»). Desde Facturas no hay diálogo A4: la manda sin documento
+   para la pantalla, así que sale por la térmica de «Recibo» del dispositivo o, si no hay, por la cola.
+3. Desde Ventas sale el papel con la marca de duplicado; desde Facturas, sin ella.
 Entra: la venta o la factura elegida.
 Sale: el papel; ninguna venta ni registro fiscal nuevo. La reimpresión usa un trabajo nuevo cada vez
 (clave distinta por intento): imprimir otra vez siempre saca papel.
-Si falla: «No se pudo imprimir» (más el motivo si lo hay); si queda en la cola y no hay ninguna impresora
+Si falla: con una impresora de red del dispositivo apagada no hay aviso (F07). Si no, «No se pudo imprimir» (más el motivo si lo hay); si queda en la cola y no hay ninguna impresora
 dada de alta, «El tique está en espera: aún no hay ninguna impresora dada de alta. Da una de alta y saldrá
 solo.».
 Implicados: pendiente
@@ -64,43 +71,46 @@ Pendiente de enlazar: invoice — imprimir una factura desde su lista
 QA: L-05, L-04
 
 ### PRINTING-F09 Imprimir la cuenta de la mesa
-Estado: parcial — si la cuenta queda en la cola sin ninguna impresora dada de alta, el TPV no avisa (el tique al cobrar y la reimpresión sí)
-Vertical: restaurante
+Estado: parcial — si la cuenta queda en la cola sin ninguna impresora dada de alta, o la impresora de red está apagada, el TPV no avisa; y pulsar «Imprimir» otra vez imprime otra cuenta cuando sale directa
+Vertical: comun
 Actor: empleado, responsable
 Pantalla: Ventas: TPV
 Pasos:
-1. Con la mesa abierta, pulsa «Imprimir cuenta» en el pie del TPV.
+1. Con algo en el carrito (con mesa abierta o sin ella), pulsa el icono de impresora «Imprimir cuenta» en el pie del TPV; sin mesa, la cuenta sale a nombre del cliente.
 2. Se abre «Cuenta» con las líneas, los suplementos, el desglose de IVA y el total (el desglose es el de
    la valoración del hub cuando ha contestado).
-3. Pulsa «Imprimir».
+3. Pulsa el icono de impresora «Imprimir».
 4. Sale por la función «Recibo» con un aviso impreso de que **no es una factura**, **sin número de
    serie ni QR de VeriFactu** y sin datos de pago; en la pantalla pone «Cuenta — no es una factura. El
    tiquet fiscal se entrega al cobrar.».
 Entra: la comanda abierta de la mesa, con sus precios y suplementos.
-Sale: el papel (o un trabajo en la cola con clave `prebill-<pedido>-<huella de las líneas>`). Pulsar
-«Imprimir» dos veces sin cambiar nada es el mismo trabajo y no saca otro papel; cambiar una línea, un
-suplemento o una nota saca la cuenta nueva. La numeración fiscal no se consume: nace al cobrar.
+Sale: el papel (o un trabajo en la cola con clave `prebill-<pedido>-<huella de las líneas>`). Si va
+por la cola del hub, pulsar «Imprimir» dos veces sin cambiar nada es el mismo trabajo y no saca otro papel;
+si sale directa por la impresora del dispositivo, cada pulsación saca una cuenta. Cambiar una línea, un
+suplemento o una nota da una cuenta nueva. La numeración fiscal no se consume: nace al cobrar.
 Si falla: «No se pudo imprimir la cuenta» y, tras dos puntos, el motivo si lo hay. Si va por la cola y
-nadie la drena, el TPV no dice nada y el papel espera hasta dar de alta una impresora de «Recibo».
+nadie la drena, o la impresora de red no contesta, el TPV no dice nada y el papel espera hasta dar de alta una impresora de «Recibo».
 Implicados: pendiente
 Pendiente de enlazar: sales — cuenta de la mesa en el TPV (imprimir cuenta)
 Pendiente de enlazar: tables — mesa abierta cuya cuenta se imprime
 QA: R-08, qa-hub-restaurant §10
 
 ### PRINTING-F12 Imprimir la etiqueta de un código de barras
-Estado: hecho
+Estado: parcial — si ningún dispositivo tiene la función «Etiqueta», la etiqueta queda en la cola sin avisar (el tique y la comanda sí avisan)
 Vertical: comun
 Actor: administrador, responsable, empleado
 Pantalla: Inventario: productos
 Pasos:
-1. En la lista de productos pulsa «Imprimir código de barras» del producto.
+1. Abre el producto y pulsa «Imprimir código de barras».
 2. La etiqueta sale por la impresora con función «Etiqueta».
 Entra: la referencia (SKU), el nombre y el precio del producto, de Inventario.
-Sale: el papel, o un trabajo en la cola (clave `barcode-<SKU>`: si va por la cola, pulsar otra vez el mismo
-producto es el mismo trabajo y no saca otra etiqueta; sin confirmar si la impresora directa también la
-ignora).
-Si falla: «Ninguna impresora tiene el rol «Etiqueta»: asígnale una en Impresión» (mensaje de Inventario)
-si falta la función; para cualquier otro fallo, «No se pudo imprimir la etiqueta del código de barras».
+Sale: el papel, o un trabajo en la cola (clave `barcode-<SKU>`: si va por la cola del hub, pulsar otra vez el
+mismo producto es el mismo trabajo y no saca otra etiqueta; si sale directa por la impresora del
+dispositivo, cada pulsación saca una).
+Si falla: sin ninguna impresora «Etiqueta» en el dispositivo la etiqueta se encola y espera sin ningún
+aviso (Inventario da por buena la cola sin mirar si alguien la saca); la impresora de red apagada tampoco
+avisa (F07). «Ninguna impresora tiene el rol «Etiqueta»: asígnale una en Impresión» (mensaje de Inventario)
+solo sale si la cola rechaza el trabajo dentro de la app instalada; para cualquier otro fallo, «No se pudo imprimir la etiqueta del código de barras».
 Se recupera dando de alta una impresora y asignándole «Etiqueta» (PRINTING-F04).
 Implicados: pendiente
 Pendiente de enlazar: inventory — imprimir el código de barras de un producto
