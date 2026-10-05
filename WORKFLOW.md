@@ -32,8 +32,8 @@ consulta de ajustes, dos comandos (guardar ajustes, pedir una impresión) y un a
 | Imprimir la comanda al disparar el pedido | Hub (shell), `apps/web/src/lib/print-comanda.ts` |
 | Qué lleva el tique (cabecera, pie, número fiscal, QR) | `sales` (el visor `erp-sales-document` y `document-mappers.ts`) |
 
-Pendiente de enlazar: hub — cola de impresión, host de impresión y envío al papel (ESC/POS, USB, Bluetooth)
-Pendiente de enlazar: hub — impresión automática del tique al cobrar y comanda al disparar el pedido
+La cola y los dispositivos que imprimen los describe el `WORKFLOW.md` del hub en `workflow/impresion.md` (HUB-F190 a HUB-F207); el envío al papel, `crates/peripherals/WORKFLOW.md` (HUB_PERIPHERALS) y `apps/tauri/WORKFLOW.md` (HUB_APP).
+Imprimir el tique al cobrar y la comanda al disparar el pedido lo describe `apps/web/workflow/avisos-e-impresion.md` del hub (HUB_SHELL-F70 a HUB_SHELL-F77).
 
 ## Referencia adoptada
 
