@@ -98,5 +98,5 @@ no se le ha concedido el permiso de impresora, la petición responde bien y el t
 en Sistema › Eventos caídos, sin reintentos; se encola solo al conceder el permiso. Una función que el hub
 no tiene la rechaza la cola en la entrega, no en la petición: la petición ya respondió bien, el hub
 reintenta 8 veces y acaba en Eventos caídos, y quien la pidió no se entera.
-Implicados: FLOWS-F13, FLOWS-F25, HUB-F191, HUB_PERIPHERALS-F13, HUB_SHELL-F167
+Implicados: FLOWS-F13, FLOWS-F25, HUB-F191, HUB_PERIPHERALS-F13, HUB_SHELL-F167, HUB-F52, HUB-F53, HUB-F58
 QA: ninguno
