@@ -39,7 +39,7 @@ de que estuviera el QR (la AEAT tardó), «El tique salió antes de que estuvier
 Vuelve a imprimirlo desde la pantalla del tique para darle al cliente el completo.». Se recupera
 reimprimiendo (PRINTING-F08) o dando de alta la impresora (PRINTING-F02). Sin el módulo Impresión
 instalado no sale nada y no se avisa.
-Implicados: INVOICE-F20, SALES-F01, VERIFACTU-F19, REC_FISCAL-F07, HUB-F190, HUB-F199, HUB-F201, HUB_APP-F19, HUB_PERIPHERALS-F06, HUB_PERIPHERALS-F09, HUB_SHELL-F70, HUB_SHELL-F76
+Implicados: INVOICE-F20, SALES-F01, VERIFACTU-F19, REC_FISCAL-F07, HUB-F190, HUB-F199, HUB-F201, HUB_APP-F19, HUB_PERIPHERALS-F06, HUB_PERIPHERALS-F09, HUB_SHELL-F70, HUB_SHELL-F76, REC_ALTA-F17
 QA: R-09, L-04, qa-hub §8
 
 ### PRINTING-F08 Reimprimir un tique o una factura
@@ -129,7 +129,7 @@ Si falla: sin aviso. Si este dispositivo no llega a la impresora, o no hay impre
 la impresora no contesta, el cajón no se abre y nadie lo ve (el error se descarta). El tique no depende
 del cajón y viceversa. El permiso `printing.open_drawer` está en el manifiesto pero ninguna pantalla ni
 comando lo exige.
-Implicados: SALES-F01, SALES-F02, REC_PELUQUERIA-F09, REC_RESTAURANTE-F11, REC_RESTAURANTE-F17, HUB-F207, HUB_APP-F21, HUB_PERIPHERALS-F15, HUB_SHELL-F71
+Implicados: SALES-F01, SALES-F02, REC_PELUQUERIA-F09, REC_RESTAURANTE-F11, REC_RESTAURANTE-F17, HUB-F207, HUB_APP-F21, HUB_PERIPHERALS-F15, HUB_SHELL-F71, REC_ALTA-F17
 QA: R-09, qa-hub §8
 
 ### PRINTING-F17 Imprimir el cierre de caja
