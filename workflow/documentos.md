@@ -87,8 +87,7 @@ si sale directa por la impresora del dispositivo, cada pulsación saca una cuent
 suplemento o una nota da una cuenta nueva. La numeración fiscal no se consume: nace al cobrar.
 Si falla: «No se pudo imprimir la cuenta» y, tras dos puntos, el motivo si lo hay. Si va por la cola y
 nadie la drena, o la impresora de red no contesta, el TPV no dice nada y el papel espera hasta dar de alta una impresora de «Recibo».
-Implicados: SALES-F21
-Pendiente de enlazar: tables — mesa abierta cuya cuenta se imprime
+Implicados: SALES-F21, REC_RESTAURANTE-F09
 QA: R-08, qa-hub-restaurant §10
 
 ### PRINTING-F12 Imprimir la etiqueta de un código de barras
@@ -105,11 +104,13 @@ mismo producto es el mismo trabajo y no saca otra etiqueta; si sale directa por 
 dispositivo, cada pulsación saca una).
 Si falla: sin ninguna impresora «Etiqueta» en el dispositivo la etiqueta se encola y espera sin ningún
 aviso (Inventario da por buena la cola sin mirar si alguien la saca); la impresora de red apagada tampoco
-avisa (F07). «Ninguna impresora tiene el rol «Etiqueta»: asígnale una en Impresión» (mensaje de Inventario)
-solo sale si la cola rechaza el trabajo dentro de la app instalada; para cualquier otro fallo, «No se pudo imprimir la etiqueta del código de barras».
+avisa (F07). El aviso «Ninguna impresora tiene el rol «Etiqueta»: asígnale una en Impresión» (mensaje de
+Inventario) no sale nunca: Inventario solo lo pone si la puerta de impresión del hub contesta «navegador»
+dentro de la app instalada, y para una etiqueta la puerta contesta «cola» (sin impresora con esa función) o
+«ningún sitio» (si la cola rechaza el trabajo); en ese último caso, y en cualquier otro fallo, sale el
+genérico «No se pudo imprimir la etiqueta del código de barras» (INVENTORY-F25).
 Se recupera dando de alta una impresora y asignándole «Etiqueta» (PRINTING-F04).
-Implicados: pendiente
-Pendiente de enlazar: inventory — imprimir el código de barras de un producto
+Implicados: INVENTORY-F25
 QA: qa-hub §8
 
 ### PRINTING-F13 Abrir el cajón al cobrar
@@ -144,5 +145,5 @@ Pasos:
 Entra: el turno cerrado, de Caja.
 Sale: el papel, o un trabajo en la cola.
 Si falla: igual que PRINTING-F07 (aviso y recuperación desde la pantalla de Caja).
-Implicados: CASH_REGISTER-F09
+Implicados: CASH_REGISTER-F09, REC_RESTAURANTE-F16
 QA: ninguno

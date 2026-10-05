@@ -103,9 +103,8 @@ no entiende tickets. Los tiques y comandas necesitan una impresora térmica.» y
 (es un aviso, no un bloqueo). Un error al asignar sale en rojo tal como llega, o «No se pudo asignar el
 rol». Una impresora sin función no recibe nada de la caja ni de la cola, y una USB tampoco lo recibe aunque
 la tenga (F02); un trabajo sin nadie con esa función espera en la cola.
-Implicados: pendiente
+Implicados: INVENTORY-F25, KITCHEN-F01, KITCHEN-F08, REC_RESTAURANTE-F02
 Pendiente de enlazar: hub — mapa documento → función y registro de «hosts» de impresión
-Pendiente de enlazar: kitchen — estaciones de cocina y barra y la función de impresora de cada una
 QA: qa-hub §8
 
 ### PRINTING-F05 Hacer una prueba de impresión

@@ -28,8 +28,7 @@ de {mesa}. Revisa la impresora y avisa en {estación}: la comanda está en la pa
 quedó en la cola sin que nadie la saque (ningún dispositivo con esa función dado de alta): «La comanda de {estación} de {mesa} está en espera: aún no hay ninguna impresora dada de alta para
 esa estación. Da una de alta y saldrá sola.». La comanda de cocina no se desvía nunca a la impresora de
 tiques.
-Implicados: pendiente
-Pendiente de enlazar: kitchen — disparar el pedido a cocina (la comanda sale al crearse el pedido de cocina)
+Implicados: KITCHEN-F08, REC_RESTAURANTE-F07, REC_RESTAURANTE-F17
 Pendiente de enlazar: hub — impresión de la comanda al disparar el pedido
 QA: qa-hub-restaurant §08
 
@@ -44,8 +43,7 @@ Pasos:
 Entra: la comanda ya disparada.
 Sale: una hoja nueva por función, con trabajo nuevo; no crea ronda ni pedido.
 Si falla: igual que PRINTING-F10.
-Implicados: pendiente
-Pendiente de enlazar: kitchen — pantalla de cocina (reimprimir la comanda)
+Implicados: KITCHEN-F09
 QA: qa-hub-restaurant §16
 
 ### PRINTING-F14 Sacar del atasco un trabajo de impresión
