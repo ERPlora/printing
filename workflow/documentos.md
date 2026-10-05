@@ -39,8 +39,7 @@ de que estuviera el QR (la AEAT tardó), «El tique salió antes de que estuvier
 Vuelve a imprimirlo desde la pantalla del tique para darle al cliente el completo.». Se recupera
 reimprimiendo (PRINTING-F08) o dando de alta la impresora (PRINTING-F02). Sin el módulo Impresión
 instalado no sale nada y no se avisa.
-Implicados: INVOICE-F20, SALES-F01, VERIFACTU-F19, REC_FISCAL-F07
-Pendiente de enlazar: hub — impresión automática del tique al cobrar
+Implicados: INVOICE-F20, SALES-F01, VERIFACTU-F19, REC_FISCAL-F07, HUB-F190, HUB-F199, HUB-F201, HUB_APP-F19, HUB_PERIPHERALS-F06, HUB_PERIPHERALS-F09, HUB_SHELL-F70, HUB_SHELL-F76
 QA: R-09, L-04, qa-hub §8
 
 ### PRINTING-F08 Reimprimir un tique o una factura
@@ -64,7 +63,7 @@ Sale: el papel; ninguna venta ni registro fiscal nuevo. La reimpresión usa un t
 Si falla: con una impresora de red del dispositivo apagada no hay aviso (F07). Si no, «No se pudo imprimir» (más el motivo si lo hay); si queda en la cola y no hay ninguna impresora
 dada de alta, «El tique está en espera: aún no hay ninguna impresora dada de alta. Da una de alta y saldrá
 solo.».
-Implicados: INVOICE-F18, SALES-F29, REC_FISCAL-F07
+Implicados: INVOICE-F18, SALES-F29, REC_FISCAL-F07, HUB_PERIPHERALS-F09
 QA: L-05, L-04
 
 ### PRINTING-F09 Imprimir la cuenta de la mesa
@@ -87,7 +86,7 @@ si sale directa por la impresora del dispositivo, cada pulsación saca una cuent
 suplemento o una nota da una cuenta nueva. La numeración fiscal no se consume: nace al cobrar.
 Si falla: «No se pudo imprimir la cuenta» y, tras dos puntos, el motivo si lo hay. Si va por la cola y
 nadie la drena, o la impresora de red no contesta, el TPV no dice nada y el papel espera hasta dar de alta una impresora de «Recibo».
-Implicados: SALES-F21, REC_RESTAURANTE-F09
+Implicados: SALES-F21, REC_RESTAURANTE-F09, HUB-F190, HUB_PERIPHERALS-F06, HUB_PERIPHERALS-F11, HUB_SHELL-F77
 QA: R-08, qa-hub-restaurant §10
 
 ### PRINTING-F12 Imprimir la etiqueta de un código de barras
@@ -110,7 +109,7 @@ dentro de la app instalada, y para una etiqueta la puerta contesta «cola» (sin
 «ningún sitio» (si la cola rechaza el trabajo); en ese último caso, y en cualquier otro fallo, sale el
 genérico «No se pudo imprimir la etiqueta del código de barras» (INVENTORY-F25).
 Se recupera dando de alta una impresora y asignándole «Etiqueta» (PRINTING-F04).
-Implicados: INVENTORY-F25
+Implicados: INVENTORY-F25, HUB-F190, HUB-F192, HUB_PERIPHERALS-F06, HUB_PERIPHERALS-F12
 QA: qa-hub §8
 
 ### PRINTING-F13 Abrir el cajón al cobrar
@@ -130,8 +129,7 @@ Si falla: sin aviso. Si este dispositivo no llega a la impresora, o no hay impre
 la impresora no contesta, el cajón no se abre y nadie lo ve (el error se descarta). El tique no depende
 del cajón y viceversa. El permiso `printing.open_drawer` está en el manifiesto pero ninguna pantalla ni
 comando lo exige.
-Implicados: SALES-F01, SALES-F02, REC_PELUQUERIA-F09, REC_RESTAURANTE-F11, REC_RESTAURANTE-F17
-Pendiente de enlazar: hub — apertura del cajón por la impresora
+Implicados: SALES-F01, SALES-F02, REC_PELUQUERIA-F09, REC_RESTAURANTE-F11, REC_RESTAURANTE-F17, HUB-F207, HUB_APP-F21, HUB_PERIPHERALS-F15, HUB_SHELL-F71
 QA: R-09, qa-hub §8
 
 ### PRINTING-F17 Imprimir el cierre de caja
@@ -145,5 +143,5 @@ Pasos:
 Entra: el turno cerrado, de Caja.
 Sale: el papel, o un trabajo en la cola.
 Si falla: igual que PRINTING-F07 (aviso y recuperación desde la pantalla de Caja).
-Implicados: CASH_REGISTER-F09, REC_PELUQUERIA-F16, REC_RESTAURANTE-F16
+Implicados: CASH_REGISTER-F09, REC_PELUQUERIA-F16, REC_RESTAURANTE-F16, HUB_PERIPHERALS-F13
 QA: ninguno

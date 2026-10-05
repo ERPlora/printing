@@ -24,8 +24,7 @@ red del propio dispositivo no pasa por ella y no aparece aunque esa impresora es
 pendientes: N (estaciones)» al cerrar el turno.
 Si falla: «No se pudo leer la cola de impresión.» con el código entre paréntesis; no se pinta «Todo al
 día» cuando la lectura falla, pero las tarjetas y trabajos de la lectura anterior siguen a la vista.
-Implicados: pendiente
-Pendiente de enlazar: hub — cola de impresión y cobertura por función
+Implicados: CASH_REGISTER-F08, HUB-F201, HUB-F202, HUB-F203, HUB_SHELL-F75, HUB_SHELL-F137, HUB_SHELL-F165
 QA: qa-hub §8
 
 ### PRINTING-F02 Encontrar y dar de alta una impresora de la red
@@ -51,8 +50,7 @@ rojo con el mensaje tal como llega. Si el sistema operativo niega el permiso de 
 «ERPlora no ha podido buscar en esta red: el sistema no le ha dado permiso a la app para acceder a los
 dispositivos de la red local…» (la frase la pone el shell del hub) y debajo «No se encontraron impresoras de red (puerto 9100)
 en esta subred.».
-Implicados: pendiente
-Pendiente de enlazar: hub — búsqueda de impresoras y registro de dispositivos de la app instalada
+Implicados: HUB_APP-F07, HUB_APP-F13, HUB_APP-F15, HUB_APP-F16, HUB_PERIPHERALS-F01, HUB_PERIPHERALS-F03, HUB_PERIPHERALS-F04, HUB_PERIPHERALS-F05, HUB_PERIPHERALS-F07, HUB_PERIPHERALS-F08, HUB_SHELL-F140, HUB_SHELL-F165
 QA: qa-hub §8, qa-hub-android Fase 3
 
 ### PRINTING-F03 Añadir una impresora por su IP
@@ -76,8 +74,7 @@ respondido en {dirección}. Comprueba que está encendida, conectada a la misma 
 que la IP y el puerto son correctos.»; «No se pudo añadir la impresora. Actualiza la app de ERPlora en
 este dispositivo y vuelve a intentarlo.» para cualquier otro fallo. Si la prueba posterior falla, el
 error de la prueba sale en rojo encima de la lista (PRINTING-F05) y la impresora queda añadida.
-Implicados: pendiente
-Pendiente de enlazar: hub — alta de impresora por IP en la app instalada
+Implicados: HUB_APP-F14, HUB_PERIPHERALS-F02
 QA: qa-hub-android Fase 3
 
 ### PRINTING-F04 Asignar qué sale por cada impresora
@@ -107,8 +104,7 @@ no entiende tickets. Los tiques y comandas necesitan una impresora térmica.» y
 (es un aviso, no un bloqueo). Un error al asignar sale en rojo tal como llega, o «No se pudo asignar el
 rol». Una impresora sin función no recibe nada de la caja ni de la cola, y una USB tampoco lo recibe aunque
 la tenga (F02); un trabajo sin nadie con esa función espera en la cola.
-Implicados: INVENTORY-F25, KITCHEN-F01, KITCHEN-F04, KITCHEN-F08, REC_RESTAURANTE-F02
-Pendiente de enlazar: hub — mapa documento → función y registro de «hosts» de impresión
+Implicados: INVENTORY-F25, KITCHEN-F01, KITCHEN-F04, KITCHEN-F08, REC_RESTAURANTE-F02, HUB-F193, HUB-F194, HUB-F195, HUB-F196, HUB_APP-F17, HUB_PERIPHERALS-F04, HUB_SHELL-F73, HUB_SHELL-F137
 QA: qa-hub §8
 
 ### PRINTING-F05 Hacer una prueba de impresión
@@ -128,7 +124,7 @@ la cola del dispositivo, que lo intenta 3 veces y lo apunta en su registro; si n
 impresora (o añádela otra vez por IP, que sí comprueba la conexión). El error sale en rojo encima de la
 lista tal como llega (o «Falló la impresión de prueba») solo con Bluetooth, USB o un identificador mal
 formado.
-Implicados: SALES-F34
+Implicados: SALES-F34, HUB_APP-F15, HUB_APP-F20, HUB_PERIPHERALS-F06, HUB_PERIPHERALS-F14
 QA: qa-hub §8
 
 ### PRINTING-F06 Elegir cómo imprime el negocio
@@ -154,7 +150,7 @@ responsable y con ella se guarda. Si el guardado falla, el mensaje del servidor 
 como llega, o «No se pudo guardar». Si no se pueden leer los ajustes, debajo del botón sale «No se
 pudieron cargar los ajustes» (o el mensaje del servidor) y el formulario se queda con los de fábrica.
 Los ajustes que no se guardan no se pierden de la pantalla: siguen en el formulario.
-Implicados: SALES-F01, REC_FISCAL-F07
+Implicados: SALES-F01, REC_FISCAL-F07, HUB_PERIPHERALS-F16, HUB_SHELL-F165
 QA: R-09, qa-hub §8
 
 ### PRINTING-F15 Llevar el texto antiguo del tique a Ventas
