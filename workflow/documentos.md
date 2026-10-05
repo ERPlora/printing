@@ -130,7 +130,7 @@ Si falla: sin aviso. Si este dispositivo no llega a la impresora, o no hay impre
 la impresora no contesta, el cajón no se abre y nadie lo ve (el error se descarta). El tique no depende
 del cajón y viceversa. El permiso `printing.open_drawer` está en el manifiesto pero ninguna pantalla ni
 comando lo exige.
-Implicados: SALES-F01, SALES-F02
+Implicados: SALES-F01, SALES-F02, REC_PELUQUERIA-F09
 Pendiente de enlazar: hub — apertura del cajón por la impresora
 QA: R-09, qa-hub §8
 
@@ -145,5 +145,5 @@ Pasos:
 Entra: el turno cerrado, de Caja.
 Sale: el papel, o un trabajo en la cola.
 Si falla: igual que PRINTING-F07 (aviso y recuperación desde la pantalla de Caja).
-Implicados: CASH_REGISTER-F09, REC_RESTAURANTE-F16
+Implicados: CASH_REGISTER-F09, REC_PELUQUERIA-F16, REC_RESTAURANTE-F16
 QA: ninguno

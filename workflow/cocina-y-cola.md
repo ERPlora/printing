@@ -97,7 +97,6 @@ no se le ha concedido el permiso de impresora, la petición responde bien y el t
 en Sistema › Eventos caídos, sin reintentos; se encola solo al conceder el permiso. Una función que el hub
 no tiene la rechaza la cola en la entrega, no en la petición: la petición ya respondió bien, el hub
 reintenta 8 veces y acaba en Eventos caídos, y quien la pidió no se entera.
-Implicados: pendiente
-Pendiente de enlazar: flows — pasos y disparadores que piden una impresión (`printing.print.due` figura en su catálogo)
+Implicados: FLOWS-F13, FLOWS-F25
 Pendiente de enlazar: hub — cola de impresión (entrega del aviso al hub)
 QA: ninguno
