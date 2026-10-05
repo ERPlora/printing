@@ -12,7 +12,9 @@ Pantalla: ninguna
 Pasos:
 1. La camarera dispara el pedido desde el TPV (cada disparo es una ronda).
 2. En la caja que lo disparó se agrupan las líneas por la función de impresora de su estación y sale
-   una hoja por función («Cocina», «Barra»); lo que va solo a pantalla no se imprime.
+   una hoja por función («Cocina», «Barra»); lo que va solo a pantalla no se imprime. Sin
+   estación, o con una estación creada en pantalla, la línea sale por «Cocina», también una bebida: «Barra»
+   solo recibe lo de una estación con esa función, que se pone con el asistente o la API (KITCHEN-F01).
 3. La hoja lleva la mesa (o la etiqueta del pedido), la ronda, el número, quién disparó, las cantidades,
    los suplementos y las notas.
 Entra: las líneas del pedido y la estación de cada una (de Cocina; la función de impresora de cada
@@ -28,8 +30,7 @@ de {mesa}. Revisa la impresora y avisa en {estación}: la comanda está en la pa
 quedó en la cola sin que nadie la saque (ningún dispositivo con esa función dado de alta): «La comanda de {estación} de {mesa} está en espera: aún no hay ninguna impresora dada de alta para
 esa estación. Da una de alta y saldrá sola.». La comanda de cocina no se desvía nunca a la impresora de
 tiques.
-Implicados: pendiente
-Pendiente de enlazar: kitchen — disparar el pedido a cocina (la comanda sale al crearse el pedido de cocina)
+Implicados: KITCHEN-F01, KITCHEN-F08, REC_RESTAURANTE-F07, REC_RESTAURANTE-F17
 Pendiente de enlazar: hub — impresión de la comanda al disparar el pedido
 QA: qa-hub-restaurant §08
 
@@ -44,8 +45,7 @@ Pasos:
 Entra: la comanda ya disparada.
 Sale: una hoja nueva por función, con trabajo nuevo; no crea ronda ni pedido.
 Si falla: igual que PRINTING-F10.
-Implicados: pendiente
-Pendiente de enlazar: kitchen — pantalla de cocina (reimprimir la comanda)
+Implicados: KITCHEN-F09
 QA: qa-hub-restaurant §16
 
 ### PRINTING-F14 Sacar del atasco un trabajo de impresión
@@ -99,7 +99,6 @@ no se le ha concedido el permiso de impresora, la petición responde bien y el t
 en Sistema › Eventos caídos, sin reintentos; se encola solo al conceder el permiso. Una función que el hub
 no tiene la rechaza la cola en la entrega, no en la petición: la petición ya respondió bien, el hub
 reintenta 8 veces y acaba en Eventos caídos, y quien la pidió no se entera.
-Implicados: pendiente
-Pendiente de enlazar: flows — pasos y disparadores que piden una impresión (`printing.print.due` figura en su catálogo)
+Implicados: FLOWS-F13, FLOWS-F25
 Pendiente de enlazar: hub — cola de impresión (entrega del aviso al hub)
 QA: ninguno
