@@ -64,7 +64,7 @@ Sale: el papel; ninguna venta ni registro fiscal nuevo. La reimpresión usa un t
 Si falla: con una impresora de red del dispositivo apagada no hay aviso (F07). Si no, «No se pudo imprimir» (más el motivo si lo hay); si queda en la cola y no hay ninguna impresora
 dada de alta, «El tique está en espera: aún no hay ninguna impresora dada de alta. Da una de alta y saldrá
 solo.».
-Implicados: INVOICE-F18, SALES-F29
+Implicados: INVOICE-F18, SALES-F29, REC_FISCAL-F07
 QA: L-05, L-04
 
 ### PRINTING-F09 Imprimir la cuenta de la mesa
@@ -130,7 +130,7 @@ Si falla: sin aviso. Si este dispositivo no llega a la impresora, o no hay impre
 la impresora no contesta, el cajón no se abre y nadie lo ve (el error se descarta). El tique no depende
 del cajón y viceversa. El permiso `printing.open_drawer` está en el manifiesto pero ninguna pantalla ni
 comando lo exige.
-Implicados: SALES-F01, SALES-F02, REC_PELUQUERIA-F09
+Implicados: SALES-F01, SALES-F02, REC_PELUQUERIA-F09, REC_RESTAURANTE-F11, REC_RESTAURANTE-F17
 Pendiente de enlazar: hub — apertura del cajón por la impresora
 QA: R-09, qa-hub §8
 

@@ -87,7 +87,10 @@ Pantalla: Impresoras
 Pasos:
 1. En la tarjeta de la impresora abre el desplegable «Rol».
 2. Elige «Recibo» (tique, factura, cuenta de la mesa y cierre de caja), «Cocina» (comandas), «Barra»
-   (comandas de la barra) o «Etiqueta» (etiquetas de código de barras).
+   (comandas de la barra) o «Etiqueta» (etiquetas de código de barras). Por «Barra» solo sale lo que va a
+   una estación de Cocina con la función «Barra», y esa función solo se le pone con el asistente o la API:
+   una estación creada en pantalla, y un plato o una bebida sin estación, salen por «Cocina» (KITCHEN-F01,
+   KITCHEN-F04, KITCHEN-F08).
 3. La función queda asignada a esa impresora **en este dispositivo**; en la siguiente pasada (hasta 30
    segundos) este dispositivo se da de alta solo en el hub como quien imprime esa función, y la tarjeta de la función pasa a
    «Listo» con «Imprime desde: <nombre del dispositivo>.».
@@ -103,7 +106,7 @@ no entiende tickets. Los tiques y comandas necesitan una impresora térmica.» y
 (es un aviso, no un bloqueo). Un error al asignar sale en rojo tal como llega, o «No se pudo asignar el
 rol». Una impresora sin función no recibe nada de la caja ni de la cola, y una USB tampoco lo recibe aunque
 la tenga (F02); un trabajo sin nadie con esa función espera en la cola.
-Implicados: INVENTORY-F25, KITCHEN-F01, KITCHEN-F08, REC_RESTAURANTE-F02
+Implicados: INVENTORY-F25, KITCHEN-F01, KITCHEN-F04, KITCHEN-F08, REC_RESTAURANTE-F02
 Pendiente de enlazar: hub — mapa documento → función y registro de «hosts» de impresión
 QA: qa-hub §8
 
