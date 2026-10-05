@@ -5,7 +5,7 @@ Prefijo: PRINTING
 ## Flujos
 
 ### PRINTING-F10 Imprimir la comanda en cocina y barra
-Estado: parcial — si la impresora de red del dispositivo está apagada o sin papel, la comanda se pierde sin ningún aviso y el hub la da por impresa
+Estado: parcial — si la impresora de red del dispositivo está apagada o sin papel, la comanda se pierde sin ningún aviso; si venía de la cola del hub, además la marca impresa (hub#2494); y una comanda que no disparó ninguna caja solo llega a la cola si hay una pantalla del hub abierta cuando nace
 Vertical: restaurante
 Actor: sistema
 Pantalla: ninguna
@@ -20,8 +20,9 @@ Pasos:
 Entra: las líneas del pedido y la estación de cada una (de Cocina; la función de impresora de cada
 estación se elige allí, no aquí).
 Sale: una hoja por función, con clave `kitchen-<pedido>-<función>`: en la cola del hub, repetir el
-disparo es el mismo trabajo; si sale directa por la impresora del dispositivo, no se deduplica. Si ninguna caja lo disparó (API, flujo, pedido en línea) va solo a la cola del hub y lo imprime
-el dispositivo de la función. Las demás cajas solo reciben el aviso del sistema «Nueva comanda». La
+disparo es el mismo trabajo; si sale directa por la impresora del dispositivo, no se deduplica. Si ninguna caja lo disparó (API, flujo, pedido en línea) va a la cola del hub, y lo imprime el
+dispositivo de la función, solo si en ese momento hay al menos una pantalla del hub abierta y conectada:
+es ella la que la encola; si no hay ninguna, no se imprime ni se avisa (hub#2501). Las demás cajas solo reciben el aviso del sistema «Nueva comanda». La
 comanda sale con o sin el módulo Impresión instalado y no lee sus ajustes.
 Si falla: nunca bloquea al camarero; la comanda está en la pantalla de cocina. Si la impresora de red
 del dispositivo está apagada o sin papel, no se avisa: el dispositivo lo intenta 3 veces y lo apunta en su

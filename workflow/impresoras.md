@@ -48,11 +48,12 @@ Si falla: desde un navegador, «Desde el navegador, este dispositivo no puede ll
 sin resultados, «No se encontraron impresoras de red (puerto 9100) en esta subred.» (cero impresoras
 puede ser cortafuegos, otra red o impresora apagada: pasa a PRINTING-F03). Un error de escaneo sale en
 rojo con el mensaje tal como llega. Si el sistema operativo niega el permiso de red local, sale en rojo
-«local network access denied (…)» sin traducir y debajo «No se encontraron impresoras de red (puerto 9100)
+«ERPlora no ha podido buscar en esta red: el sistema no le ha dado permiso a la app para acceder a los
+dispositivos de la red local…» (la frase la pone el shell del hub) y debajo «No se encontraron impresoras de red (puerto 9100)
 en esta subred.».
 Implicados: pendiente
 Pendiente de enlazar: hub — búsqueda de impresoras y registro de dispositivos de la app instalada
-QA: qa-hub §8, qa-hub-android §15
+QA: qa-hub §8, qa-hub-android Fase 3
 
 ### PRINTING-F03 Añadir una impresora por su IP
 Estado: hecho
@@ -77,10 +78,10 @@ este dispositivo y vuelve a intentarlo.» para cualquier otro fallo. Si la prueb
 error de la prueba sale en rojo encima de la lista (PRINTING-F05) y la impresora queda añadida.
 Implicados: pendiente
 Pendiente de enlazar: hub — alta de impresora por IP en la app instalada
-QA: qa-hub-android §15
+QA: qa-hub-android Fase 3
 
 ### PRINTING-F04 Asignar qué sale por cada impresora
-Estado: parcial — la función se asigna por impresora y dispositivo, pero no hay pantalla para cambiar qué documento va a qué función (solo la API del hub) ni para quitar una función ya asignada
+Estado: parcial — la función se asigna por impresora y dispositivo, pero no hay pantalla para cambiar qué documento va a qué función (solo la API del hub) ni para quitar una función ya asignada; y cambiar o quitar la función en la app no la retira del hub, que la sigue dando por cubierta sin imprimir
 Vertical: comun
 Actor: administrador, responsable, empleado
 Pantalla: Impresoras

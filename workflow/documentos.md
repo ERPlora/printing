@@ -5,7 +5,7 @@ Prefijo: PRINTING
 ## Flujos
 
 ### PRINTING-F07 Imprimir el tique al cobrar
-Estado: parcial — si la impresora de red del dispositivo está apagada o sin papel, el papel se pierde sin ningún aviso y el hub lo da por impreso
+Estado: parcial — si la impresora de red del dispositivo está apagada o sin papel, el papel se pierde sin ningún aviso; si el tique venía de la cola del hub, además lo marca impreso (hub#2494)
 Vertical: comun
 Actor: empleado, sistema
 Pantalla: Ventas: Cobro
@@ -31,7 +31,7 @@ cola suya, lo intenta 3 veces con 2 s de pausa y, si fallan, lo apunta en su reg
 entregado, no sale aviso y, si venía de la cola del hub, el hub lo marca hecho. Los avisos solo saltan
 cuando no hay impresora ni cola, cuando el papel espera sin nadie que lo saque o cuando el tique no se pudo
 componer. Las 5 entregas del hub solo cuentan fallos anteriores al envío (sin impresora con esa función en
-el dispositivo, Bluetooth o USB caídos) y desconexiones del dispositivo. La persona ve un aviso: «El tique NO se imprimió. Vuelve
+el dispositivo, Bluetooth caído) y desconexiones del dispositivo. La persona ve un aviso: «El tique NO se imprimió. Vuelve
 a imprimirlo desde la pantalla del tique.»; «El tique está en espera: aún no hay ninguna impresora dada de
 alta. Da una de alta y saldrá solo.» (el trabajo no se pierde, sale al dar de alta una);
 «El tique no se pudo preparar y NO se imprimió. Imprímelo desde la pantalla del tique.»; o, si salió antes
