@@ -5,7 +5,7 @@ Prefijo: PRINTING
 ## Flujos
 
 ### PRINTING-F10 Imprimir la comanda en cocina y barra
-Estado: parcial — si la impresora de red del dispositivo está apagada o sin papel, la comanda se pierde sin ningún aviso y el hub la da por impresa
+Estado: parcial — si la impresora de red del dispositivo está apagada o sin papel, la comanda se pierde sin ningún aviso; si venía de la cola del hub, además la marca impresa (hub#2494); y una comanda que no disparó ninguna caja solo llega a la cola si hay una pantalla del hub abierta cuando nace
 Vertical: restaurante
 Actor: sistema
 Pantalla: ninguna
@@ -20,8 +20,9 @@ Pasos:
 Entra: las líneas del pedido y la estación de cada una (de Cocina; la función de impresora de cada
 estación se elige allí, no aquí).
 Sale: una hoja por función, con clave `kitchen-<pedido>-<función>`: en la cola del hub, repetir el
-disparo es el mismo trabajo; si sale directa por la impresora del dispositivo, no se deduplica. Si ninguna caja lo disparó (API, flujo, pedido en línea) va solo a la cola del hub y lo imprime
-el dispositivo de la función. Las demás cajas solo reciben el aviso del sistema «Nueva comanda». La
+disparo es el mismo trabajo; si sale directa por la impresora del dispositivo, no se deduplica. Si ninguna caja lo disparó (API, flujo, pedido en línea) va a la cola del hub, y lo imprime el
+dispositivo de la función, solo si en ese momento hay al menos una pantalla del hub abierta y conectada:
+es ella la que la encola; si no hay ninguna, no se imprime ni se avisa (hub#2501). Las demás cajas solo reciben el aviso del sistema «Nueva comanda». La
 comanda sale con o sin el módulo Impresión instalado y no lee sus ajustes.
 Si falla: nunca bloquea al camarero; la comanda está en la pantalla de cocina. Si la impresora de red
 del dispositivo está apagada o sin papel, no se avisa: el dispositivo lo intenta 3 veces y lo apunta en su
@@ -30,8 +31,7 @@ de {mesa}. Revisa la impresora y avisa en {estación}: la comanda está en la pa
 quedó en la cola sin que nadie la saque (ningún dispositivo con esa función dado de alta): «La comanda de {estación} de {mesa} está en espera: aún no hay ninguna impresora dada de alta para
 esa estación. Da una de alta y saldrá sola.». La comanda de cocina no se desvía nunca a la impresora de
 tiques.
-Implicados: KITCHEN-F01, KITCHEN-F08, REC_RESTAURANTE-F07, REC_RESTAURANTE-F17
-Pendiente de enlazar: hub — impresión de la comanda al disparar el pedido
+Implicados: KITCHEN-F01, KITCHEN-F08, REC_RESTAURANTE-F07, REC_RESTAURANTE-F17, HUB-F190, HUB-F192, HUB-F193, HUB-F199, HUB-F201, HUB_APP-F19, HUB_PERIPHERALS-F06, HUB_PERIPHERALS-F10, HUB_SHELL-F72
 QA: qa-hub-restaurant §08
 
 ### PRINTING-F11 Reimprimir una comanda
@@ -75,8 +75,7 @@ en la cola. La lista se acaba de actualizar.», «El permiso de impresión no es
 no se pueden mover trabajos.» (con el botón «Ir a Permisos»), «Solo quien administra el negocio puede
 mover trabajos de la cola de impresión.» y, para cualquier otro, «No se pudo mover el trabajo. Inténtalo
 de nuevo en un momento.».
-Implicados: pendiente
-Pendiente de enlazar: hub — cola de impresión (reintentar y descartar trabajos)
+Implicados: HUB-F200, HUB-F203, HUB-F204, HUB-F205, HUB_SHELL-F74
 QA: qa-hub-restaurant §16, qa-hub §8
 
 ### PRINTING-F16 Mandar imprimir desde el asistente o un flujo
@@ -99,6 +98,5 @@ no se le ha concedido el permiso de impresora, la petición responde bien y el t
 en Sistema › Eventos caídos, sin reintentos; se encola solo al conceder el permiso. Una función que el hub
 no tiene la rechaza la cola en la entrega, no en la petición: la petición ya respondió bien, el hub
 reintenta 8 veces y acaba en Eventos caídos, y quien la pidió no se entera.
-Implicados: FLOWS-F13, FLOWS-F25
-Pendiente de enlazar: hub — cola de impresión (entrega del aviso al hub)
+Implicados: FLOWS-F13, FLOWS-F25, HUB-F191, HUB_PERIPHERALS-F13, HUB_SHELL-F167, HUB-F52, HUB-F53, HUB-F58
 QA: ninguno

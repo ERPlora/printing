@@ -32,8 +32,8 @@ consulta de ajustes, dos comandos (guardar ajustes, pedir una impresión) y un a
 | Imprimir la comanda al disparar el pedido | Hub (shell), `apps/web/src/lib/print-comanda.ts` |
 | Qué lleva el tique (cabecera, pie, número fiscal, QR) | `sales` (el visor `erp-sales-document` y `document-mappers.ts`) |
 
-Pendiente de enlazar: hub — cola de impresión, host de impresión y envío al papel (ESC/POS, USB, Bluetooth)
-Pendiente de enlazar: hub — impresión automática del tique al cobrar y comanda al disparar el pedido
+La cola y los dispositivos que imprimen los describe el `WORKFLOW.md` del hub en `workflow/impresion.md` (HUB-F190 a HUB-F207); el envío al papel, `crates/peripherals/WORKFLOW.md` (HUB_PERIPHERALS) y `apps/tauri/WORKFLOW.md` (HUB_APP).
+Imprimir el tique al cobrar y la comanda al disparar el pedido lo describe `apps/web/workflow/avisos-e-impresion.md` del hub (HUB_SHELL-F70 a HUB_SHELL-F77).
 
 ## Referencia adoptada
 
@@ -129,7 +129,7 @@ vista):
 
 Los errores del hardware (escaneo, rol, prueba) salen en rojo encima de la lista con el mensaje tal como
 llega (con una impresora de red, la prueba no da error si la impresora no contesta: F05; si el sistema niega
-el permiso de red local, sale «local network access denied (…)» sin traducir); si no llega mensaje, «Error al escanear», «No se pudo asignar el rol» o «Falló la impresión de
+el permiso de red local, sale «ERPlora no ha podido buscar en esta red: el sistema no le ha dado permiso a la app…», frase que pone el shell del hub); si no llega mensaje, «Error al escanear», «No se pudo asignar el rol» o «Falló la impresión de
 prueba». Los fallos de guardar ajustes salen debajo del botón: el mensaje del servidor tal cual, o «No
 se pudo guardar». No hay estado «cargando» propio de los ajustes (la clave «Cargando…» existe y la
 pantalla no la usa).
@@ -310,7 +310,7 @@ discrepancia; manda el código.
 - **`architecture/modules/printing.md`** dice que `print_kitchen` sigue siendo contrato; el campo lo exige el esquema y lo lee nadie (F06).
 - **Guion `qa-hub-restaurant` §10 y §2 («Cajón solo en efectivo»; «sin venta» con permiso y auditado)**: el cajón se abre con cualquier forma de pago y no existe «sin venta» (F13).
 - **Guion `R-08`** («si no sale papel, el TPV lo dice»): no lo dice cuando la cuenta queda en la cola sin impresora (F09).
-- **Guion `qa-hub-restaurant` §10** («impresora sin papel/offline: trabajo queda pendiente, reintenta una vez y UI informa estado»): con una impresora de red del propio dispositivo apagada o sin papel, el dispositivo lo intenta 3 veces con 2 s de pausa, solo lo apunta en su registro, la puerta lo da por entregado y el hub lo marca hecho; no queda pendiente ni se informa. Las 5 entregas del hub solo cuentan fallos de antes del envío y desconexiones (F07, F10, F14).
+- **Guion `qa-hub-restaurant` §10** («impresora sin papel/offline: trabajo queda pendiente, reintenta una vez y UI informa estado»): con una impresora de red del propio dispositivo apagada o sin papel, el dispositivo lo intenta 3 veces con 2 s de pausa, solo lo apunta en su registro y la puerta lo da por entregado (si venía de la cola del hub, el hub además lo marca hecho; si salió directo, el hub ni lo conoce); no queda pendiente ni se informa (hub#2494). Las 5 entregas del hub solo cuentan fallos de antes del envío y desconexiones (F07, F10, F14).
 - **Referencia de mercado** («lo que espera se avisa, recuperarlo no duplica»): la impresión directa no deduplica y la cola entrega «al menos una vez» (F07, F09, F12).
 - **Inventario** (`ui/lib/barcode-print.ts`) da por buena la vía cola sin mirar si alguien la saca, y su botón está en el detalle del producto, no en la lista (F12).
 - **Facturas** (`erp-invoice-list.ts`) manda la factura sin documento para la pantalla ni marca de duplicado; en la app instalada sale por la térmica, no en A4; en un navegador sin impresoras, la factura completa abre el diálogo A4 del navegador (F08).
@@ -318,6 +318,7 @@ discrepancia; manda el código.
 - **Pestaña del hub «Impresoras y tique»** (`es.ts`) dice «Da de alta tu impresora y configura el tique impreso y digital» y lleva a Impresión; el tique se configura en Ventas (F15).
 - **Retención**: `crates/runtime/src/retention.rs` borra a los 90 días `_event_outbox` y `_flow_runs`; no toca `_print_queue`, y el borrado RGPD tampoco (Datos).
 - **Textos en inglés en la pantalla española**: la lista de impresoras pinta tal cual la palabra del estado cuando no es «ready», «stopped» o «unknown» (el hub documenta también `busy`, `error` y `offline`), y el error del hardware o del guardado se pinta con el mensaje que llega, sin traducir (pantalla Impresoras, F02, F05, F06).
+- **SDK de módulos** (`packages/module-sdk/src/index.ts` del hub, el error de escaneo con el permiso de red local negado): su mensaje es «local network access denied (…)», en inglés, y así lo daba este fichero; el shell lo sustituye antes de que llegue a la pantalla (`apps/web/src/lib/bridge-transport.ts`, `withLocalisedDiscovery`) por la frase en español de `hardware.printersBlocked` (F02).
 - **La clave `ui.loading` («Cargando…»)** existe en `locales/es.json` y la pantalla no la usa.
 - **USB**: `crates/peripherals` y la app listan y registran las impresoras USB del sistema; `apps/web/src/lib/print.ts` solo resuelve como destino las de red y las Bluetooth con MAC, y el alta como host usa la misma regla (F02, F04, F13).
 - **PRINTING-F12, oleada 2 (Inventario, 05/10/2026)**: decía que el aviso «Ninguna impresora tiene el rol «Etiqueta»…» sale cuando la cola rechaza la etiqueta dentro de la app instalada; ese caso da `via: none` en la puerta del hub (`apps/web/src/lib/print.ts`) y sale el aviso genérico; el específico solo lo pone Inventario con `via: browser`, que para una etiqueta no llega nunca (F12).
