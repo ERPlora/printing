@@ -38,7 +38,7 @@ Implicados: KITCHEN-F01, KITCHEN-F08, REC_RESTAURANTE-F07, REC_RESTAURANTE-F17, 
 QA: qa-hub-restaurant §08
 
 ### PRINTING-F11 Reimprimir una comanda
-Estado: no hecho — no hay botón ni acción para reimprimir una comanda que no salió o se estropeó; el aviso lo dice solo de palabra («la comanda está en la pantalla de cocina»)
+Estado: no hecho — no hay botón ni acción para reimprimir una comanda que no salió o se estropeó; el aviso de la caja solo ofrece «Reintentar» cuando la impresora de red del dispositivo no contestó (PRINTING-F10, hub#2494), y en los demás casos lo dice solo de palabra («la comanda está en la pantalla de cocina»)
 Vertical: restaurante
 Actor: responsable
 Pantalla: Cocina: pantalla de cocina
