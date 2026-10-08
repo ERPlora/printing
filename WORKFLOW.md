@@ -128,7 +128,7 @@ vista):
   impresora por IP» (solo en la app instalada).
 
 Los errores del hardware (escaneo, rol, prueba) salen en rojo encima de la lista con el mensaje tal como
-llega (con una impresora de red, la prueba no da error si la impresora no contesta: F05; si el sistema niega
+llega (con una impresora de red que no contesta, el error de la prueba llega a los ~13 s: F05; si el sistema niega
 el permiso de red local, sale «ERPlora no ha podido buscar en esta red: el sistema no le ha dado permiso a la app…», frase que pone el shell del hub); si no llega mensaje, «Error al escanear», «No se pudo asignar el rol» o «Falló la impresión de
 prueba». Los fallos de guardar ajustes salen debajo del botón: el mensaje del servidor tal cual, o «No
 se pudo guardar». No hay estado «cargando» propio de los ajustes (la clave «Cargando…» existe y la
@@ -184,18 +184,18 @@ gramática y el mismo prefijo. Huecos (`parcial`, `no hecho`): el porqué está 
 | Una función por impresora (recibos, cocina, barra, etiquetas) | hecho | F04 |
 | Qué documento sale por qué función | parcial: mapa del hub sin pantalla | F04 |
 | Quitar la función de una impresora | no hecho | F04 |
-| Hoja de prueba | parcial: con impresora de red apagada no da error | F05 |
-| Tique automático al cobrar con interruptor por venta | hecho; impresora de red apagada, sin aviso | F06, F07 |
+| Hoja de prueba | parcial: con impresora de red apagada el error llega a los ~13 s, sin indicador mientras espera | F05 |
+| Tique automático al cobrar con interruptor por venta | hecho; impresora de red apagada: la caja avisa y deja reintentar (por la cola del hub, sin aviso) | F06, F07 |
 | Ancho de papel (58/80 mm) | parcial: se guarda y no cambia el papel | F06 |
 | Tique con QR fiscal y leyenda | hecho (lo pone Ventas) | F07 |
 | Reimpresión como duplicado | hecho desde Ventas; desde Facturas sin marca (y, en la app instalada, por la térmica) | F08 |
 | Cuenta no fiscal (de mesa o de cliente) | parcial: no avisa si espera en cola sin impresora; impresa directa, cada pulsación saca papel | F09 |
-| Comanda automática por estación | parcial: impresora de red apagada, sin aviso | F10 |
+| Comanda automática por estación | parcial: impresora de red apagada: la caja avisa y deja reintentar (por la cola del hub, sin aviso) | F10 |
 | Reimprimir la comanda | no hecho | F11 |
 | Etiqueta de código de barras | parcial: sin impresora «Etiqueta», espera sin aviso | F12 |
 | Cajón al cobrar | hecho para cualquier pago; solo efectivo no existe | F13 |
 | Apertura manual del cajón («sin venta») con permiso y registro | no hecho | F13 |
-| Aviso visible cuando el papel no sale | parcial: avisa si no hay impresora ni cola, si espera sin nadie que lo saque o si no se pudo componer; no avisa si la impresora de red del dispositivo está apagada, ni en cuenta de mesa en cola, etiqueta en cola y cajón | F07, F09, F10, F12, F13 |
+| Aviso visible cuando el papel no sale | parcial: avisa si no hay impresora ni cola, si espera sin nadie que lo saque o si no se pudo componer; con la impresora de red del dispositivo apagada avisa con «Reintentar» en tique, comanda y vale; no avisa por la cola del hub, con una impresora encendida sin papel, ni en cuenta de mesa en cola, etiqueta en cola y cajón | F07, F09, F10, F12, F13 |
 | Cola con recuperación (reintentar, descartar con motivo y sello) | hecho | F14 |
 | Cobertura por función («nadie imprime cocina») | hecho | F01 |
 | Cierre de caja impreso | no hecho | F17 |
@@ -256,7 +256,8 @@ gramática y el mismo prefijo. Huecos (`parcial`, `no hecho`): el porqué está 
   factura y el registro VeriFactu; la cuenta de la mesa se construye sin número, sin QR y sin pago, y
   con aviso de que no es una factura.
 - **Una venta o una comanda no se caen por la impresión**: el cobro y el disparo del pedido siguen aunque
-  el papel falle (el papel sí puede perderse sin aviso: F07, F10).
+  el papel falle (con la impresora de red del dispositivo apagada la caja lo avisa y deja reintentar;
+  por la cola del hub, o con una impresora encendida sin papel, aún puede perderse sin aviso: F07, F10).
 - **Solo imprime la caja que cobró o disparó**: con varias cajas abiertas, solo imprime la que cobró o
   disparó (el hub marca qué pestaña lo hizo).
 - **Nada se borra de la cola**: reintentar y descartar sellan quién, cuándo y por qué; un trabajo
@@ -310,7 +311,7 @@ discrepancia; manda el código.
 - **`architecture/modules/printing.md`** dice que `print_kitchen` sigue siendo contrato; el campo lo exige el esquema y lo lee nadie (F06).
 - **Guion `qa-hub-restaurant` §10 y §2 («Cajón solo en efectivo»; «sin venta» con permiso y auditado)**: el cajón se abre con cualquier forma de pago y no existe «sin venta» (F13).
 - **Guion `R-08`** («si no sale papel, el TPV lo dice»): no lo dice cuando la cuenta queda en la cola sin impresora (F09).
-- **Guion `qa-hub-restaurant` §10** («impresora sin papel/offline: trabajo queda pendiente, reintenta una vez y UI informa estado»): con una impresora de red del propio dispositivo apagada o sin papel, el dispositivo lo intenta 3 veces con 2 s de pausa, solo lo apunta en su registro y la puerta lo da por entregado (si venía de la cola del hub, el hub además lo marca hecho; si salió directo, el hub ni lo conoce); no queda pendiente ni se informa (hub#2494). Las 5 entregas del hub solo cuentan fallos de antes del envío y desconexiones (F07, F10, F14).
+- **Guion `qa-hub-restaurant` §10** («impresora sin papel/offline: trabajo queda pendiente, reintenta una vez y UI informa estado»): con una impresora de red del propio dispositivo apagada, el dispositivo lo intenta 3 veces con 2 s de pausa y contesta el error: si salió directo, la caja lo avisa con un aviso fijo y «Reintentar» (hub#2494); si venía de la cola del hub, el trabajo vuelve «fallido» sin avisar a nadie. No queda pendiente en la cola, y una impresora encendida sin papel se da por impresa. Las 5 entregas del hub solo cuentan fallos de antes del envío y desconexiones (F07, F10, F14).
 - **Referencia de mercado** («lo que espera se avisa, recuperarlo no duplica»): la impresión directa no deduplica y la cola entrega «al menos una vez» (F07, F09, F12).
 - **Inventario** (`ui/lib/barcode-print.ts`) da por buena la vía cola sin mirar si alguien la saca, y su botón está en el detalle del producto, no en la lista (F12).
 - **Facturas** (`erp-invoice-list.ts`) manda la factura sin documento para la pantalla ni marca de duplicado; en la app instalada sale por la térmica, no en A4; en un navegador sin impresoras, la factura completa abre el diálogo A4 del navegador (F08).
