@@ -108,7 +108,7 @@ Implicados: INVENTORY-F25, KITCHEN-F01, KITCHEN-F04, KITCHEN-F08, REC_RESTAURANT
 QA: qa-hub §8
 
 ### PRINTING-F05 Hacer una prueba de impresión
-Estado: parcial — con una impresora de red, «Probar» no avisa si la impresora no contesta
+Estado: parcial — con una impresora de red que no contesta, el error llega a los ~13 s y mientras tanto la pantalla no muestra que está probando
 Vertical: comun
 Actor: administrador, responsable, empleado
 Pantalla: Impresoras
@@ -119,11 +119,11 @@ Pasos:
 Entra: la impresora y el idioma de la pantalla; el nombre del negocio es la primera línea de la cabecera
 del tique de Ventas o, si no hay, el nombre fiscal del negocio.
 Sale: nada guardado; la hoja va directa a la impresora, no pasa por la cola.
-Si falla: con una impresora de red, «Probar» no avisa si la impresora no contesta: la hoja solo entra en
-la cola del dispositivo, que lo intenta 3 veces y lo apunta en su registro; si no sale la hoja, revisa la
-impresora (o añádela otra vez por IP, que sí comprueba la conexión). El error sale en rojo encima de la
-lista tal como llega (o «Falló la impresión de prueba») solo con Bluetooth, USB o un identificador mal
-formado.
+Si falla: el error sale en rojo encima de la lista tal como llega (o «Falló la impresión de prueba»).
+Con Bluetooth, USB o un identificador mal formado llega en el momento; con una impresora de red que no
+contesta, el dispositivo lo intenta 3 veces con 2 s de pausa y el error llega a los ~13 s (hub#2494),
+sin que la pantalla muestre mientras tanto que está probando. Una impresora de red encendida pero sin
+papel se queda la hoja y no da error.
 Implicados: SALES-F34, HUB_APP-F15, HUB_APP-F20, HUB_PERIPHERALS-F06, HUB_PERIPHERALS-F14, REC_ALTA-F17
 QA: qa-hub §8
 

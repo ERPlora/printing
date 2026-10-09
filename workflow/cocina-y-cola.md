@@ -5,7 +5,7 @@ Prefijo: PRINTING
 ## Flujos
 
 ### PRINTING-F10 Imprimir la comanda en cocina y barra
-Estado: parcial — si la impresora de red del dispositivo está apagada o sin papel, la comanda se pierde sin ningún aviso; si venía de la cola del hub, además la marca impresa (hub#2494); y una comanda que no disparó ninguna caja solo llega a la cola si hay una pantalla del hub abierta cuando nace
+Estado: parcial — con la impresora de red del dispositivo apagada la caja que la disparó avisa y deja reintentar (hub#2494), pero una comanda que iba por la cola del hub vuelve «fallida» sin aviso y una impresora encendida sin papel se da por impresa; y una comanda que no disparó ninguna caja solo llega a la cola si hay una pantalla del hub abierta cuando nace
 Vertical: restaurante
 Actor: sistema
 Pantalla: ninguna
@@ -25,8 +25,11 @@ dispositivo de la función, solo si en ese momento hay al menos una pantalla del
 es ella la que la encola; si no hay ninguna, no se imprime ni se avisa (hub#2501). Las demás cajas solo reciben el aviso del sistema «Nueva comanda». La
 comanda sale con o sin el módulo Impresión instalado y no lee sus ajustes.
 Si falla: nunca bloquea al camarero; la comanda está en la pantalla de cocina. Si la impresora de red
-del dispositivo está apagada o sin papel, no se avisa: el dispositivo lo intenta 3 veces y lo apunta en su
-registro, y la comanda no sale. Si la cola no acepta la comanda: «No se imprimió la comanda de {estación}
+del dispositivo está apagada o fuera de la red, el dispositivo lo intenta 3 veces y, a los ~13 s, la caja
+que la disparó saca el aviso de abajo («No se imprimió la comanda…») fijo y con «Reintentar», que vuelve
+a mandar solo esa estación (HUB_SHELL-F72, hub#2494); si iba por la cola del hub, el dispositivo que la
+saca contesta «falló» y vuelve a la cola sin aviso (HUB_SHELL-F74). Una impresora de red encendida pero
+sin papel se la queda y no avisa. Si la cola no acepta la comanda: «No se imprimió la comanda de {estación}
 de {mesa}. Revisa la impresora y avisa en {estación}: la comanda está en la pantalla de cocina.»; si
 quedó en la cola sin que nadie la saque (ningún dispositivo con esa función dado de alta): «La comanda de {estación} de {mesa} está en espera: aún no hay ninguna impresora dada de alta para
 esa estación. Da una de alta y saldrá sola.». La comanda de cocina no se desvía nunca a la impresora de
@@ -35,7 +38,7 @@ Implicados: KITCHEN-F01, KITCHEN-F08, REC_RESTAURANTE-F07, REC_RESTAURANTE-F17, 
 QA: qa-hub-restaurant §08
 
 ### PRINTING-F11 Reimprimir una comanda
-Estado: no hecho — no hay botón ni acción para reimprimir una comanda que no salió o se estropeó; el aviso lo dice solo de palabra («la comanda está en la pantalla de cocina»)
+Estado: no hecho — no hay botón ni acción para reimprimir una comanda que no salió o se estropeó; el aviso de la caja solo ofrece «Reintentar» cuando la impresora de red del dispositivo no contestó (PRINTING-F10, hub#2494), y en los demás casos lo dice solo de palabra («la comanda está en la pantalla de cocina»)
 Vertical: restaurante
 Actor: responsable
 Pantalla: Cocina: pantalla de cocina
@@ -67,7 +70,7 @@ Entra: el trabajo elegido y, al descartar, el motivo.
 Sale: el trabajo vuelve a pendiente o queda «Retirado» (nunca se borra); queda sellado quién, cuándo y
 desde qué módulo. La lista se vuelve a leer siempre, también tras un rechazo. Un trabajo «Imprimiendo»
 no ofrece ninguna acción; un trabajo muerto tiene cinco entregas agotadas.
-Si falla: un trabajo solo llega a «Muerto» por fallos anteriores al envío o por desconexiones del dispositivo (5 entregas, 90 s de arrendamiento); una impresora de red apagada no lo mata: el hub lo da por hecho (F07). Los botones solo los ve quien administra el hub; el servidor lo vuelve a exigir y además
+Si falla: un trabajo solo llega a «Muerto» por fallos anteriores al envío o por desconexiones del dispositivo (5 entregas, 90 s de arrendamiento); desde hub#2494 una impresora de red apagada también cuenta (el dispositivo contesta «falló»), pero una encendida sin papel no, porque se da por impresa (F07). Los botones solo los ve quien administra el hub; el servidor lo vuelve a exigir y además
 pide el permiso de impresora concedido al módulo. Los rechazos salen por código y en la lengua de la
 pantalla: «Solo se puede reintentar un trabajo que se ha dado por vencido; este está {estado}.», «No se
 puede descartar un trabajo que una impresora está sacando; este está {estado}.», «Ese trabajo ya no está

@@ -5,7 +5,7 @@ Prefijo: PRINTING
 ## Flujos
 
 ### PRINTING-F07 Imprimir el tique al cobrar
-Estado: parcial — si la impresora de red del dispositivo está apagada o sin papel, el papel se pierde sin ningún aviso; si el tique venía de la cola del hub, además lo marca impreso (hub#2494)
+Estado: parcial — con la impresora de red del dispositivo apagada la caja avisa y deja reintentar (hub#2494), pero un tique que iba por la cola del hub vuelve «fallido» sin aviso, y una impresora encendida sin papel se da por impresa
 Vertical: comun
 Actor: empleado, sistema
 Pantalla: Ventas: Cobro
@@ -25,10 +25,13 @@ impresión directa del dispositivo no deduplica nada). El
 QR fiscal y la leyenda `VERI*FACTU` los pone Ventas con el dato del registro fiscal: este módulo no los
 pone ni los cambia (PRINTING-F08 recoge lo que va en el papel). Una venta hecha por la API o por un flujo
 no la imprime ninguna caja.
-Si falla: la venta nunca se cae por la impresión, pero el papel sí puede perderse sin aviso. Con la
-impresora de red del propio dispositivo apagada o sin papel, el dispositivo solo deja el trabajo en una
-cola suya, lo intenta 3 veces con 2 s de pausa y, si fallan, lo apunta en su registro: la puerta lo da por
-entregado, no sale aviso y, si venía de la cola del hub, el hub lo marca hecho. Los avisos solo saltan
+Si falla: la venta nunca se cae por la impresión. Con la impresora de red del propio dispositivo
+apagada o fuera de la red, el dispositivo lo intenta 3 veces con 2 s de pausa y, a los ~13 s, la caja
+saca un aviso rojo que se queda hasta que la cajera actúa: «El tique NO se imprimió: la impresora no
+contesta. Comprueba que está encendida y con papel y pulsa «Reintentar».», con «Reintentar» (vuelve a
+sacar ese mismo tique) y «OK» (HUB_SHELL-F70, hub#2494). Si el tique iba por la cola del hub, el
+dispositivo que la saca contesta «falló» y el trabajo vuelve a la cola sin aviso (HUB_SHELL-F74). Una
+impresora de red encendida pero sin papel se queda los bytes y se da por impresa. Los demás avisos saltan
 cuando no hay impresora ni cola, cuando el papel espera sin nadie que lo saque o cuando el tique no se pudo
 componer. Las 5 entregas del hub solo cuentan fallos anteriores al envío (sin impresora con esa función en
 el dispositivo, Bluetooth caído) y desconexiones del dispositivo. La persona ve un aviso: «El tique NO se imprimió. Vuelve
@@ -43,7 +46,7 @@ Implicados: INVOICE-F20, SALES-F01, VERIFACTU-F19, REC_FISCAL-F07, HUB-F190, HUB
 QA: R-09, L-04, qa-hub §8
 
 ### PRINTING-F08 Reimprimir un tique o una factura
-Estado: parcial — desde Facturas la reimpresión no lleva marca de duplicado, y en la app instalada la factura completa sale por la impresora térmica de «Recibo» (o la cola), no en A4; la impresora de red apagada pierde el papel sin aviso (F07)
+Estado: parcial — desde Facturas la reimpresión no lleva marca de duplicado, y en la app instalada la factura completa sale por la impresora térmica de «Recibo» (o la cola), no en A4
 Vertical: comun
 Actor: administrador, responsable, empleado
 Pantalla: Ventas: lista de ventas
@@ -60,7 +63,8 @@ Pasos:
 Entra: la venta o la factura elegida.
 Sale: el papel; ninguna venta ni registro fiscal nuevo. La reimpresión usa un trabajo nuevo cada vez
 (clave distinta por intento): imprimir otra vez siempre saca papel.
-Si falla: con una impresora de red del dispositivo apagada no hay aviso (F07). Si no, «No se pudo imprimir» (más el motivo si lo hay); si queda en la cola y no hay ninguna impresora
+Si falla: «No se pudo imprimir» (más el motivo si lo hay; también con la impresora de red del
+dispositivo apagada, a los ~13 s, hub#2494: se vuelve a pulsar «Reimprimir»); si queda en la cola y no hay ninguna impresora
 dada de alta, «El tique está en espera: aún no hay ninguna impresora dada de alta. Da una de alta y saldrá
 solo.».
 Implicados: INVOICE-F18, SALES-F29, REC_FISCAL-F07, HUB_PERIPHERALS-F09
